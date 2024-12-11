@@ -1,5 +1,4 @@
 pub fn validate_order(order: Array<usize>, seeds: Array<felt252>, size: usize) -> bool {
-
     assert!(order.len() == size, "Order length mismatch");
     assert!(seeds.len() == size, "Seeds length mismatch");
 
@@ -27,7 +26,6 @@ pub fn validate_order(order: Array<usize>, seeds: Array<felt252>, size: usize) -
         };
 
         indices = copied_indices;
-
     };
     is_valid
 }
