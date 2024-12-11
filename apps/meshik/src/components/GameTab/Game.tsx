@@ -48,6 +48,7 @@ export function Game() {
       const [drawnCard, ...remainingLibrary] = newState.players[playerIndex].library;
       newState.players[playerIndex].hand.push(drawnCard);
       newState.players[playerIndex].library = remainingLibrary;
+      // call contract with drawnCard
 
       return newState;
     });
