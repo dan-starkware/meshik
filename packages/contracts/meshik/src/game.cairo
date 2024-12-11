@@ -45,14 +45,6 @@ mod game {
     }
 
     #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
-    enum CardState {
-        #[default]
-        Missing,
-        Present,
-        Removed,
-    }
-
-    #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
     enum TurnState {
         #[default]
         Setup,
@@ -156,6 +148,8 @@ mod game {
                 deck_var.write(i, *card);
                 i += 1;
             };
+
+            self.turn_state.write(TurnState::AwaitDeployAndAttack);
             self.next_actor.write(1);
 
             self.emit(JoinedSeedAndDeck { player_id: 2, deck: deck, seed_commit: seed_commit });
