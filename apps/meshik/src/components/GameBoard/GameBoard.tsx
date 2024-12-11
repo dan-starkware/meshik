@@ -15,32 +15,72 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
       <h3 className="text-lg font-semibold mb-2 text-white">
         {isActivePlayer ? "Your Hand" : "Opponent's Hand"}
       </h3>
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-wrap gap-2 justify-start">
         {player.hand.map((card, cardIndex) => (
-          <Card
-            key={card.id}
-            card={isActivePlayer ? card : { ...card, name: 'Hidden' }}
-            onClick={() => isActivePlayer && onPlayCard(player.id, cardIndex)}
-            interactive={isActivePlayer}
-            faceDown={!isActivePlayer}
-          />
+          <div key={card.id} className="w-24 h-32"> {/* Fixed-size container */}
+            <Card
+              card={isActivePlayer ? card : { ...card, name: 'Hidden' }}
+              onClick={() => isActivePlayer && onPlayCard(player.id, cardIndex)}
+              interactive={isActivePlayer}
+              faceDown={!isActivePlayer}
+              isOnBattlefield={false}
+            />
+          </div>
         ))}
       </div>
     </div>
   );
 
-  const renderBattlefield = (player: PlayerType, isActivePlayer: boolean) => (
-    <div className="flex-1 p-4 bg-green-800 bg-opacity-30">
-      <h3 className="text-lg font-semibold mb-2 text-white">
-        {isActivePlayer ? "Your Battlefield" : "Opponent's Battlefield"}
-      </h3>
-      <div className="flex flex-wrap gap-2">
-        {player.battlefield.map(card => (
-          <Card key={card.id} card={card} />
-        ))}
+  const renderBattlefield = (player: PlayerType, isActivePlayer: boolean) => {
+    const creatures = player.battlefield.filter(card => card.type === 'creature');
+    const lands = player.battlefield.filter(card => card.type === 'mana');
+    const usedMana = player.mana - player.activeMana;
+    const unusedLands = lands.slice(0, lands.length - usedMana);
+    const usedLands = lands.slice(lands.length - usedMana);
+
+    return (
+      <div className="flex-1 p-4 bg-green-800 bg-opacity-30">
+        <h3 className="text-lg font-semibold mb-2 text-white">
+          {isActivePlayer ? "Your Battlefield" : "Opponent's Battlefield"}
+        </h3>
+        <div className="flex">
+          <div className="flex-grow">
+            <h4 className="text-md font-semibold mb-2 text-white">Creatures</h4>
+            <div className="flex flex-wrap gap-2">
+              {creatures.map(card => (
+                <Card key={card.id} card={card} isOnBattlefield={true} />
+              ))}
+            </div>
+          </div>
+          <div className="w-1/4 ml-4">
+            <h4 className="text-md font-semibold mb-2 text-white">Lands</h4>
+            <div className="flex">
+              <div className="relative h-32">
+                {unusedLands.map((card, index) => (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    isOnBattlefield={true}
+                    isUsed={false}
+                  />
+                ))}
+              </div>
+              <div className="relative h-32 ml-2">
+                {usedLands.map((card, index) => (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    isOnBattlefield={true}
+                    isUsed={true}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -53,95 +93,3 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
     </div>
   );
 }
-
-
-// import { Meal } from '../../types/meal';
-// import { MealCard } from '../MealCard/MealCard';
-// import { MealCardSkeleton } from '../MealCardSkeleton/MealCardSkeleton';
-
-// export const UpcomingMealsTab = ({
-//   isAllowedUser,
-//   onConnectWallet,
-//   updateMeal,
-//   futureMeals,
-//   pastMeals,
-//   loadingAllEvents,
-//   isSuccessFetchingUserEvents,
-//   isWalletConnected,
-// }: {
-//   address?: string;
-//   futureMeals: Meal[];
-//   pastMeals: Meal[];
-//   isAllowedUser?: boolean;
-//   loadingAllEvents: boolean;
-//   isSuccessFetchingUserEvents: boolean;
-//   updateMeal: (mealId: string) => void;
-//   onConnectWallet: () => void;
-//   isWalletConnected: boolean;
-// }) => {
-//   if (!loadingAllEvents && !futureMeals[0]) {
-//     return <div>No upcoming futureMeals to display</div>;
-//   }
-
-//   return (
-//     <>
-//       {loadingAllEvents ? (
-//         <MealCardSkeleton />
-//       ) : (
-//         <MealCard
-//           isSuccessFetchingUserEvents={isSuccessFetchingUserEvents}
-//           updateMeal={updateMeal}
-//           onConnectWallet={onConnectWallet}
-//           isAllowedUser={isAllowedUser}
-//           meal={futureMeals[0]}
-//           isWalletConnected={isWalletConnected}
-//           isNextMeal
-//         />
-//       )}
-//       <div>
-//         <h2 className="text-2xl font-bold mb-6">Future Meals</h2>
-//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-//           {loadingAllEvents
-//             ? Array(6)
-//               .fill(null)
-//               .map((_, index) => <MealCardSkeleton key={index} />)
-//             : futureMeals
-//               .slice(1, 7)
-//               .map((meal, index) => (
-//                 <MealCard
-//                   isSuccessFetchingUserEvents={isSuccessFetchingUserEvents}
-//                   updateMeal={updateMeal}
-//                   onConnectWallet={onConnectWallet}
-//                   isAllowedUser={isAllowedUser}
-//                   key={meal.id ?? index}
-//                   meal={meal}
-//                   isWalletConnected={isWalletConnected}
-//                 />
-//               ))}
-//         </div>
-//         <h2 className="text-2xl font-bold mb-6 mt-12">Past Meals</h2>
-//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-//           {loadingAllEvents
-//             ? Array(6)
-//               .fill(null)
-//               .map((_, index) => <MealCardSkeleton key={index} />)
-//             : pastMeals
-//               .reverse()
-//               .slice(0, 6)
-//               .map((meal, index) => (
-//                 <MealCard
-//                   isSuccessFetchingUserEvents={isSuccessFetchingUserEvents}
-//                   isPastMeal
-//                   updateMeal={updateMeal}
-//                   onConnectWallet={onConnectWallet}
-//                   isAllowedUser={isAllowedUser}
-//                   key={meal.id ?? index}
-//                   meal={meal}
-//                   isWalletConnected={isWalletConnected}
-//                 />
-//               ))}
-//         </div>
-//       </div>
-//     </>
-//   );
-// };

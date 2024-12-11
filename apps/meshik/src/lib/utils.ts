@@ -35,15 +35,15 @@ export function generateDeck(): Card[] {
   }
 
   // Generate 10 spells
-  for (let i = 0; i < 10; i++) {
-    deck.push({
-      id: generateId(),
-      name: 'Nature\'s Blessing',
-      type: 'spell',
-      cost: Math.floor(Math.random() * 3) + 1, // Random cost between 1 and 3
-      tapped: false,
-    });
-  }
+  // for (let i = 0; i < 10; i++) {
+  //   deck.push({
+  //     id: generateId(),
+  //     name: 'Nature\'s Blessing',
+  //     type: 'spell',
+  //     cost: Math.floor(Math.random() * 3) + 1, // Random cost between 1 and 3
+  //     tapped: false,
+  //   });
+  // }
 
   // Shuffle the deck
   return deck.sort(() => Math.random() - 0.5);
