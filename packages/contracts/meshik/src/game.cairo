@@ -54,6 +54,49 @@ mod game {
         turn_state: TurnState,
     }
 
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    pub enum Event {
+        JoinedSeedAndDeck: JoinedSeedAndDeck,
+        DeployAndAttack: DeployAndAttack,
+        Defend: Defend,
+        Finalize: Finalize,
+        Win: Win,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct JoinedSeedAndDeck {
+        pub player_id: usize,
+        pub deck: Span<Card>,
+        pub seed_commit: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct DeployAndAttack {
+        pub player_id: usize,
+        pub deploy_cards: Span<usize>,
+        pub attack_cards: Span<usize>,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct Defend {
+        pub player_id: usize,
+        pub deploy_cards: Span<Span<usize>>,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct Finalize {
+        pub player_id: usize,
+        pub redeploy: Span<usize>,
+        pub next_seed: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct Win {
+        pub player_id: usize,
+        pub seed: felt252,
+    }
+
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -76,10 +119,18 @@ mod game {
             deck_var.write(i, *card);
             i += 1;
         };
+
+        self.emit(JoinedSeedAndDeck {
+            player_id: 1,
+            deck: deck,
+            seed_commit: seed_commit,
+        });
+
     }
 
     #[abi(embed_v0)]
     impl ABIImpl of IGame<ContractState> {
+
         fn join(ref self: ContractState, seed_commit: felt252, deck: Span<Card>) {
             assert!(self.turn_state.read() == TurnState::Setup);
             assert!(
@@ -95,7 +146,14 @@ mod game {
 
             self.player2.seed_commit.write(seed_commit);
             self.next_actor.write(1);
+
+            self.emit(JoinedSeedAndDeck {
+                player_id: 2,
+                deck: deck,
+                seed_commit: seed_commit,
+            });
         }
+
         fn deploy_and_attack(
             ref self: ContractState, deploy_cards: Span<usize>, attack_cards: Span<usize>,
         ) {
@@ -108,8 +166,16 @@ mod game {
             assert!(attacker.id.read() == starknet::get_caller_address());
 
             self.turn_state.write(TurnState::AwaitDefend);
+
+            self.emit(DeployAndAttack {
+                player_id: self.next_actor.read(),
+                deploy_cards: deploy_cards,
+                attack_cards: attack_cards,
+            });
+
             self.switch();
         }
+
         fn defend(ref self: ContractState, deploy_cards: Span<Span<usize>>) {
             assert!(self.turn_state.read() == TurnState::AwaitDefend);
             let defender = if self.next_actor.read() == 1 {
@@ -120,8 +186,15 @@ mod game {
             assert!(defender.id.read() == starknet::get_caller_address());
 
             self.turn_state.write(TurnState::AwaitFinalize);
+
+            self.emit(Defend {
+                player_id: self.next_actor.read(),
+                deploy_cards: deploy_cards,
+            });
+
             self.switch();
         }
+
         fn finalize(ref self: ContractState, redeploy: Span<usize>, next_seed: felt252) {
             assert!(self.turn_state.read() == TurnState::AwaitFinalize);
             let attacker = if self.next_actor.read() == 1 {
@@ -132,8 +205,16 @@ mod game {
             assert!(attacker.id.read() == starknet::get_caller_address());
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
+
+            self.emit(Finalize {
+                player_id: self.next_actor.read(),
+                redeploy: redeploy,
+                next_seed: next_seed,
+            });
+
             self.switch();
         }
+
         fn win(ref self: ContractState, seed: felt252) {
             assert!(self.turn_state.read() == TurnState::AwaitFinalize);
             let attacker = if self.next_actor.read() == 1 {
@@ -144,8 +225,15 @@ mod game {
             assert!(attacker.id.read() == starknet::get_caller_address());
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
+
+            self.emit(Win {
+                player_id: self.next_actor.read(),
+                seed: seed,
+            });
+
             self.switch();
         }
+
     }
 
     #[generate_trait]
