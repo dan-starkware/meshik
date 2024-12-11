@@ -187,8 +187,11 @@ mod game {
             let mut cost = 0;
             let mut found_resource_card = false;
             let card_count = self.card_count.read();
-            let deck_pulled_cards = attacker.deck_pulled_cards.read() + 1;
-            attacker.deck_pulled_cards.write(deck_pulled_cards);
+            let mut deck_pulled_cards = attacker.deck_pulled_cards.read();
+            if deck_pulled_cards < card_count {
+                deck_pulled_cards += 1;
+                attacker.deck_pulled_cards.write(deck_pulled_cards);
+            }
             for (card, order) in deploy_cards {
                 assert!(*card < card_count);
                 assert!(*order < deck_pulled_cards);
