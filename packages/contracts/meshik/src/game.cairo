@@ -171,9 +171,15 @@ mod game {
                 resources += attacker.arena.values.read(i);
             };
             let mut cost = 0;
+            let mut found_resource_card = false;
             for card in deploy_cards {
                 let e = attacker.deck.entry(*card);
-                resources += e.resources.read();
+                let card_resources = e.resources.read();
+                if card_resources != 0 {
+                    assert!(!found_resource_card, "Activated 2 resource cards.");
+                    found_resource_card = true;
+                    resources += card_resources;
+                }
                 cost += e.cost.read();
             };
             assert!(cost <= resources);
