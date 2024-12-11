@@ -23,12 +23,12 @@ mod game {
     use starknet::ContractAddress;
 
     use starknet::storage::{
-        Vec, MutableVecTrait, Map, StoragePathEntry, StorageMapReadAccess,
-        StoragePointerWriteAccess, StoragePointerReadAccess, StorageMapWriteAccess,
+        Map, Vec, StoragePathEntry, StorageMapReadAccess, StoragePointerWriteAccess,
+        StoragePointerReadAccess, StorageMapWriteAccess, MutableVecTrait,
     };
 
     use core::num::traits::SaturatingSub;
-    use core::dict::Felt252Dict;
+    use core::dict::{Felt252DictEntryTrait, Felt252Dict};
 
     use super::{Card, IGame};
 
@@ -125,6 +125,7 @@ mod game {
         seed_commit: felt252,
         deck: Span<Card>,
     ) {
+        assert!(initial_cards <= deck.len());
         self.card_count.write(deck.len());
         self.initial_cards.write(initial_cards);
         self.player1.id.write(starknet::get_caller_address());
@@ -132,7 +133,6 @@ mod game {
         self.player1.life.write(life);
         self.player2.life.write(life);
         self.player1.seed_commit.write(seed_commit);
-        self.player2.seeds.append().write(seed_commit);
         self.player1.deck_pulled_cards.write(initial_cards);
         self.player2.deck_pulled_cards.write(initial_cards);
         let mut i = 0;
@@ -164,7 +164,6 @@ mod game {
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
             self.next_actor.write(1);
             self.player2.seed_commit.write(seed_commit);
-            self.player1.seeds.append().write(seed_commit);
 
             self.emit(JoinedSeedAndDeck { player_id: 2, deck: deck, seed_commit: seed_commit });
         }
@@ -347,6 +346,48 @@ mod game {
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
             assert!(defender.life.read() == 0);
+
+            assert!(core::pedersen::pedersen(seed, seed) == attacker.seed_commit.read());
+            let mut allocated: Felt252Dict<bool> = Default::default();
+            let initial_cards = self.initial_cards.read();
+            let mut initial_cards_seed = core::pedersen::pedersen(
+                seed, defender.seed_commit.read(),
+            );
+            let card_count = self.card_count.read();
+            for i in 0..initial_cards {
+                let card_idx = loop {
+                    let v: u256 = initial_cards_seed.into() % card_count.into();
+                    let idx: usize = v.try_into().unwrap();
+                    initial_cards_seed =
+                        core::pedersen::pedersen(initial_cards_seed, initial_cards_seed);
+                    let (e, existing) = allocated.entry(idx.into());
+                    allocated = e.finalize(true);
+                    if !existing {
+                        break idx;
+                    }
+                };
+                assert!(attacker.order_to_card.read(i) == card_idx + 1);
+            };
+            let deck_pulled_cards = attacker.deck_pulled_cards.read();
+
+            let mut seed_idx = 0;
+            for i in initial_cards..deck_pulled_cards {
+                let mut card_seed = core::pedersen::pedersen(
+                    seed, attacker.seeds.at(seed_idx).read(),
+                );
+                seed_idx += 1;
+                let card_idx = loop {
+                    let v: u256 = card_seed.into() % card_count.into();
+                    let idx: usize = v.try_into().unwrap();
+                    card_seed = core::pedersen::pedersen(card_seed, card_seed);
+                    let (e, existing) = allocated.entry(idx.into());
+                    allocated = e.finalize(true);
+                    if !existing {
+                        break idx;
+                    }
+                };
+                assert!(attacker.order_to_card.read(i) == card_idx + 1);
+            };
 
             self.turn_state.write(TurnState::Done);
 
