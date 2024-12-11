@@ -4,10 +4,10 @@ import { useAccount } from '@starknet-react/core';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Calendar, PieChart, Users } from 'lucide-react';
 import { AppTabs } from '../types/ui';
-import { UpcomingMealsTab } from './UpcomingMealsTab/UpcomingMealsTab';
-import { StatsTab } from './StatsTab/StatsTab';
+import { GameBoard } from './GameBoard/GameBoard';
 import { useMealData } from '../hooks/useMealData';
 import { ManagementTab } from './ManagementTab/ManagementTab';
+import { Game } from './GameTab/Game';
 
 /// A function to create the main MeshikApp component.
 export const MeshikApp = () => {
@@ -20,8 +20,6 @@ export const MeshikApp = () => {
     pastMeals,
     futureMeals,
     isAllowedUser,
-    foodieRank,
-    allTimeMealCount,
     isAdmin,
     loadingAllEvents,
     isSuccessFetchingUserEvents,
@@ -62,29 +60,30 @@ export const MeshikApp = () => {
             ) : null}
           </TabsList>
           <TabsContent value={AppTabs.MEAL_REGISTRATION} className="space-y-12">
-            <UpcomingMealsTab
-              updateMeal={updateMeal}
-              loadingAllEvents={loadingAllEvents}
-              isSuccessFetchingUserEvents={isSuccessFetchingUserEvents}
-              isAllowedUser={isAllowedUser}
-              futureMeals={futureMeals}
-              pastMeals={pastMeals}
-              address={starknetWallet?.address}
-              onConnectWallet={onConnectWallet}
-              isWalletConnected={starknetWallet.isConnected ?? false}
+            <Game
+            // GameBoard
+            // updateMeal={updateMeal}
+            // loadingAllEvents={loadingAllEvents}
+            // isSuccessFetchingUserEvents={isSuccessFetchingUserEvents}
+            // isAllowedUser={isAllowedUser}
+            // futureMeals={futureMeals}
+            // pastMeals={pastMeals}
+            // address={starknetWallet?.address}
+            // onConnectWallet={onConnectWallet}
+            // isWalletConnected={starknetWallet.isConnected ?? false}
             />
           </TabsContent>
           <TabsContent
             value={AppTabs.STATS_AND_PREV_MEALS}
             className="space-y-12"
           >
-            <StatsTab
+            {/* <StatsTab
               foodieRank={foodieRank}
               allTimeMealCount={allTimeMealCount}
               setActiveTab={setActiveTab}
               updateMeal={updateMeal}
               meals={pastMeals}
-            />
+            /> */}
           </TabsContent>
           {isAdmin ? (
             <TabsContent value={AppTabs.MANAGEMENT} className="space-y-12">

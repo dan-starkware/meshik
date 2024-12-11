@@ -108,9 +108,9 @@ export const MealCard = ({
           {shortString.decodeShortString(meal.info?.description ?? '') ?? 'Not Set Yet'}
         </p>
         {isWalletConnected &&
-        !isAllowedUser &&
-        isSuccessFetchingUserEvents &&
-        !meal.info.registered ? (
+          !isAllowedUser &&
+          isSuccessFetchingUserEvents &&
+          !meal.info.registered ? (
           <div className="flex items-center mt-2 text-red-500">
             <AlertCircle className="w-4 h-4 mr-2" />
             <span className="text-sm">
