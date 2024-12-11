@@ -166,6 +166,7 @@ mod game {
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
             self.next_actor.write(1);
             self.player2.seed_commit.write(seed_commit);
+            self.player1.seeds.append().write(seed_commit);
 
             self.emit(JoinedSeedAndDeck { player_id: 2, deck: deck, seed_commit: seed_commit });
         }
@@ -360,30 +361,32 @@ mod game {
         fn validate_and_get_order(
             self: @ContractState, seed: felt252, actor: usize,
         ) -> Array<usize> {
-            let (actor, other) = if actor == 1 {
-                (self.player1, self.player2)
+            let actor = if actor == 1 {
+                self.player1
             } else {
-                (self.player2, self.player1)
+                self.player2
             };
             let mut order = array![];
+            let actor = actor.deref();
             assert!(core::pedersen::pedersen(seed, seed) == actor.seed_commit.read());
             let mut allocated: Felt252Dict<bool> = Default::default();
             let initial_cards = self.initial_cards.read();
-            let mut initial_cards_seed = core::pedersen::pedersen(seed, other.seed_commit.read());
+            let mut initial_cards_seed = core::pedersen::pedersen(seed, actor.seeds.at(0).read());
             let card_count = self.card_count.read();
+            let card_count_as_u256: u256 = card_count.into();
             for i in 0..initial_cards {
                 let card_idx = seed_to_idx(
-                    ref allocated, ref initial_cards_seed, card_count.into(),
+                    ref allocated, ref initial_cards_seed, card_count_as_u256,
                 );
                 let expected_card_index = actor.order_to_card.read(i);
                 assert!(expected_card_index == 0 || expected_card_index == card_idx + 1);
                 order.append(card_idx);
             };
-            let mut seed_idx = 0;
+            let mut seed_idx = 1;
             while let Option::Some(seed_ptr) = actor.seeds.get(seed_idx) {
                 seed_idx += 1;
                 let mut card_seed = core::pedersen::pedersen(seed, seed_ptr.read());
-                let card_idx = seed_to_idx(ref allocated, ref card_seed, card_count.into());
+                let card_idx = seed_to_idx(ref allocated, ref card_seed, card_count_as_u256);
                 let expected_card_index = actor.order_to_card.read(order.len());
                 assert!(expected_card_index == 0 || expected_card_index == card_idx + 1);
                 order.append(card_idx);
