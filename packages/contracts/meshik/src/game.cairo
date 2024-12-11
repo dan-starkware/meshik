@@ -15,23 +15,38 @@ struct Card {
     defense: usize,
 }
 
+
 #[starknet::contract]
 mod game {
     use starknet::ContractAddress;
+
     use starknet::storage::{
-        Vec, Map, StoragePointerWriteAccess, StoragePointerReadAccess, StorageMapWriteAccess,
+        Map, StoragePathEntry, StorageMapReadAccess, StoragePointerWriteAccess,
+        StoragePointerReadAccess, StorageMapWriteAccess,
     };
+
     use super::{Card, IGame};
+
+    #[starknet::storage_node]
+    struct ShortUsizeVec {
+        length: usize,
+        values: Map<usize, usize>,
+    }
 
     #[starknet::storage_node]
     struct Player {
         id: ContractAddress,
         life: usize,
-        seed_commit: felt252,
         deck: Map<usize, Card>,
-        arena: Map<usize, bool>,
-        order: Map<usize, usize>,
-        seeds: Vec<felt252>,
+        arena: ShortUsizeVec,
+    }
+
+    #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
+    enum CardState {
+        #[default]
+        Missing,
+        Present,
+        Removed,
     }
 
     #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
@@ -52,6 +67,8 @@ mod game {
         player2: Player,
         next_actor: usize,
         turn_state: TurnState,
+        attack: ShortUsizeVec,
+        remaining_resources: usize,
     }
 
     #[event]
@@ -112,7 +129,6 @@ mod game {
         self.player2.id.write(other);
         self.player1.life.write(life);
         self.player2.life.write(life);
-        self.player1.seed_commit.write(seed_commit);
         let mut i = 0;
         let deck_var = self.player1.deck;
         for card in deck {
@@ -143,8 +159,6 @@ mod game {
                 deck_var.write(i, *card);
                 i += 1;
             };
-
-            self.player2.seed_commit.write(seed_commit);
             self.next_actor.write(1);
 
             self.emit(JoinedSeedAndDeck {
@@ -164,6 +178,31 @@ mod game {
                 self.player2
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
+            let arena_size = attacker.arena.length.read();
+            let mut resources = 0;
+            for i in 0..arena_size {
+                resources += attacker.arena.values.read(i);
+            };
+            let mut cost = 0;
+            for card in deploy_cards {
+                let e = attacker.deck.entry(*card);
+                resources += e.resources.read();
+                cost += e.cost.read();
+            };
+            assert!(cost <= resources);
+            self.remaining_resources.write(resources - cost);
+            let mut attack_length = 0;
+            for card_in_arena in attack_cards {
+                assert!(*card_in_arena < arena_size);
+                self.attack.values.write(attack_length, attacker.arena.values.read(*card_in_arena));
+                attack_length += 1;
+            };
+            self.attack.length.write(attack_length);
+            let mut new_arena_size = arena_size;
+            for card in deploy_cards {
+                attacker.arena.values.write(new_arena_size, *card);
+                new_arena_size += 1;
+            };
 
             self.turn_state.write(TurnState::AwaitDefend);
 
@@ -203,6 +242,12 @@ mod game {
                 self.player2
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
+
+            let mut cost = 0;
+            for card in redeploy {
+                cost += attacker.deck.entry(*card).cost.read();
+            };
+            assert!(cost <= self.remaining_resources.read());
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
 
