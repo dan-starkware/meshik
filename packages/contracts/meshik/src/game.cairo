@@ -1,9 +1,11 @@
 #[starknet::interface]
 trait IGame<T> {
     fn join(ref self: T, seed_commit: felt252, deck: Span<Card>);
-    fn deploy_and_attack(ref self: T, deploy_cards: Span<usize>, attack_cards: Span<usize>);
+    fn deploy_and_attack(
+        ref self: T, deploy_cards: Span<(usize, usize)>, attack_cards: Span<usize>,
+    );
     fn defend(ref self: T, defenders: Span<Span<usize>>);
-    fn finalize(ref self: T, redeploy: Span<usize>, next_seed: felt252);
+    fn finalize(ref self: T, redeploy: Span<(usize, usize)>, next_seed: felt252);
     fn win(ref self: T, seed: felt252);
 }
 
@@ -21,8 +23,8 @@ mod game {
     use starknet::ContractAddress;
 
     use starknet::storage::{
-        Map, StoragePathEntry, StorageMapReadAccess, StoragePointerWriteAccess,
-        StoragePointerReadAccess, StorageMapWriteAccess,
+        Vec, MutableVecTrait, Map, StoragePathEntry, StorageMapReadAccess,
+        StoragePointerWriteAccess, StoragePointerReadAccess, StorageMapWriteAccess,
     };
 
     use core::num::traits::SaturatingSub;
@@ -42,6 +44,11 @@ mod game {
         life: usize,
         deck: Map<usize, Card>,
         arena: ShortUsizeVec,
+        seed_commit: felt252,
+        deck_pulled_cards: usize,
+        card_to_order: Map<usize, usize>,
+        order_to_card: Map<usize, usize>,
+        seeds: Vec<felt252>,
     }
 
     #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
@@ -86,7 +93,7 @@ mod game {
     #[derive(Drop, starknet::Event)]
     pub struct DeployAndAttack {
         pub player_id: usize,
-        pub deploy_cards: Span<usize>,
+        pub deploy_cards: Span<(usize, usize)>,
         pub attack_cards: Span<usize>,
     }
 
@@ -99,7 +106,7 @@ mod game {
     #[derive(Drop, starknet::Event)]
     pub struct Finalize {
         pub player_id: usize,
-        pub redeploy: Span<usize>,
+        pub redeploy: Span<(usize, usize)>,
         pub next_seed: felt252,
     }
 
@@ -124,6 +131,10 @@ mod game {
         self.player2.id.write(other);
         self.player1.life.write(life);
         self.player2.life.write(life);
+        self.player1.seed_commit.write(seed_commit);
+        self.player2.seeds.append().write(seed_commit);
+        self.player1.deck_pulled_cards.write(initial_cards);
+        self.player2.deck_pulled_cards.write(initial_cards);
         let mut i = 0;
         let deck_var = self.player1.deck;
         for card in deck {
@@ -142,6 +153,7 @@ mod game {
                 self.player2.id.read() == starknet::get_caller_address(),
                 "Only configured second player can join",
             );
+            assert!(self.card_count.read() == deck.len());
             let mut i = 0;
             let deck_var = self.player2.deck;
             for card in deck {
@@ -151,12 +163,14 @@ mod game {
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
             self.next_actor.write(1);
+            self.player2.seed_commit.write(seed_commit);
+            self.player1.seeds.append().write(seed_commit);
 
             self.emit(JoinedSeedAndDeck { player_id: 2, deck: deck, seed_commit: seed_commit });
         }
 
         fn deploy_and_attack(
-            ref self: ContractState, deploy_cards: Span<usize>, attack_cards: Span<usize>,
+            ref self: ContractState, deploy_cards: Span<(usize, usize)>, attack_cards: Span<usize>,
         ) {
             assert!(self.turn_state.read() == TurnState::AwaitDeployAndAttack);
             let attacker = if self.next_actor.read() == 1 {
@@ -172,7 +186,16 @@ mod game {
             };
             let mut cost = 0;
             let mut found_resource_card = false;
-            for card in deploy_cards {
+            let card_count = self.card_count.read();
+            let deck_pulled_cards = attacker.deck_pulled_cards.read() + 1;
+            attacker.deck_pulled_cards.write(deck_pulled_cards);
+            for (card, order) in deploy_cards {
+                assert!(*card < card_count);
+                assert!(*order < deck_pulled_cards);
+                assert!(attacker.card_to_order.read(*card) == 0);
+                assert!(attacker.order_to_card.read(*order) == 0);
+                attacker.card_to_order.write(*card, *order + 1);
+                attacker.order_to_card.write(*order, *card + 1);
                 let e = attacker.deck.entry(*card);
                 let card_resources = e.resources.read();
                 if card_resources != 0 {
@@ -192,19 +215,18 @@ mod game {
             };
             self.attack.length.write(attack_length);
             let mut new_arena_size = arena_size;
-            for card in deploy_cards {
+            for (card, _) in deploy_cards {
                 attacker.arena.values.write(new_arena_size, *card);
                 new_arena_size += 1;
             };
+            attacker.arena.length.write(new_arena_size);
 
             self.turn_state.write(TurnState::AwaitDefend);
 
             self
                 .emit(
                     DeployAndAttack {
-                        player_id: self.next_actor.read(),
-                        deploy_cards: deploy_cards,
-                        attack_cards: attack_cards,
+                        player_id: self.next_actor.read(), deploy_cards, attack_cards,
                     },
                 );
 
@@ -278,7 +300,7 @@ mod game {
             self.switch();
         }
 
-        fn finalize(ref self: ContractState, redeploy: Span<usize>, next_seed: felt252) {
+        fn finalize(ref self: ContractState, redeploy: Span<(usize, usize)>, next_seed: felt252) {
             assert!(self.turn_state.read() == TurnState::AwaitFinalize);
             let (attacker, defender) = if self.next_actor.read() == 1 {
                 (self.player1, self.player2)
@@ -287,21 +309,28 @@ mod game {
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
             assert!(defender.life.read() != 0);
+            defender.seeds.append().write(next_seed);
 
+            let card_count = self.card_count.read();
+            let deck_pulled_cards = attacker.deck_pulled_cards.read();
             let mut cost = 0;
-            for card in redeploy {
+            let mut new_arena_size = attacker.arena.length.read();
+            for (card, order) in redeploy {
+                assert!(*card < card_count);
+                assert!(*order < deck_pulled_cards);
+                assert!(attacker.card_to_order.read(*card) == 0);
+                assert!(attacker.order_to_card.read(*order) == 0);
+                attacker.card_to_order.write(*card, *order + 1);
+                attacker.order_to_card.write(*order, *card + 1);
                 cost += attacker.deck.entry(*card).cost.read();
+                attacker.arena.values.write(new_arena_size, *card);
             };
+            attacker.arena.length.write(new_arena_size);
             assert!(cost <= self.remaining_resources.read());
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
 
-            self
-                .emit(
-                    Finalize {
-                        player_id: self.next_actor.read(), redeploy: redeploy, next_seed: next_seed,
-                    },
-                );
+            self.emit(Finalize { player_id: self.next_actor.read(), redeploy, next_seed });
 
             self.switch();
         }
