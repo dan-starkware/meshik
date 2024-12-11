@@ -316,7 +316,7 @@ mod game {
             assert!(attacker.id.read() == starknet::get_caller_address());
             assert!(defender.life.read() == 0);
 
-            self.turn_state.write(TurnState::AwaitDeployAndAttack);
+            self.turn_state.write(TurnState::Done);
 
             self.emit(Win { player_id: self.next_actor.read(), seed: seed });
 
