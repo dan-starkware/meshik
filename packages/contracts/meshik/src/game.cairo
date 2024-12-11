@@ -2,7 +2,7 @@
 trait IGame<T> {
     fn join(ref self: T, seed_commit: felt252, deck: Span<Card>);
     fn deploy_and_attack(ref self: T, deploy_cards: Span<usize>, attack_cards: Span<usize>);
-    fn defend(ref self: T, deploy_cards: Span<Span<usize>>);
+    fn defend(ref self: T, defenders: Span<Span<usize>>);
     fn finalize(ref self: T, redeploy: Span<usize>, next_seed: felt252);
     fn win(ref self: T, seed: felt252);
 }
@@ -24,6 +24,9 @@ mod game {
         Map, StoragePathEntry, StorageMapReadAccess, StoragePointerWriteAccess,
         StoragePointerReadAccess, StorageMapWriteAccess,
     };
+
+    use core::num::traits::SaturatingSub;
+    use core::dict::Felt252Dict;
 
     use super::{Card, IGame};
 
@@ -98,7 +101,7 @@ mod game {
     #[derive(Drop, starknet::Event)]
     pub struct Defend {
         pub player_id: usize,
-        pub deploy_cards: Span<Span<usize>>,
+        pub defenders: Span<Span<usize>>,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -136,17 +139,11 @@ mod game {
             i += 1;
         };
 
-        self.emit(JoinedSeedAndDeck {
-            player_id: 1,
-            deck: deck,
-            seed_commit: seed_commit,
-        });
-
+        self.emit(JoinedSeedAndDeck { player_id: 1, deck: deck, seed_commit: seed_commit });
     }
 
     #[abi(embed_v0)]
     impl ABIImpl of IGame<ContractState> {
-
         fn join(ref self: ContractState, seed_commit: felt252, deck: Span<Card>) {
             assert!(self.turn_state.read() == TurnState::Setup);
             assert!(
@@ -161,11 +158,7 @@ mod game {
             };
             self.next_actor.write(1);
 
-            self.emit(JoinedSeedAndDeck {
-                player_id: 2,
-                deck: deck,
-                seed_commit: seed_commit,
-            });
+            self.emit(JoinedSeedAndDeck { player_id: 2, deck: deck, seed_commit: seed_commit });
         }
 
         fn deploy_and_attack(
@@ -194,7 +187,7 @@ mod game {
             let mut attack_length = 0;
             for card_in_arena in attack_cards {
                 assert!(*card_in_arena < arena_size);
-                self.attack.values.write(attack_length, attacker.arena.values.read(*card_in_arena));
+                self.attack.values.write(attack_length, *card_in_arena);
                 attack_length += 1;
             };
             self.attack.length.write(attack_length);
@@ -206,42 +199,94 @@ mod game {
 
             self.turn_state.write(TurnState::AwaitDefend);
 
-            self.emit(DeployAndAttack {
-                player_id: self.next_actor.read(),
-                deploy_cards: deploy_cards,
-                attack_cards: attack_cards,
-            });
+            self
+                .emit(
+                    DeployAndAttack {
+                        player_id: self.next_actor.read(),
+                        deploy_cards: deploy_cards,
+                        attack_cards: attack_cards,
+                    },
+                );
 
             self.switch();
         }
-
-        fn defend(ref self: ContractState, deploy_cards: Span<Span<usize>>) {
+        fn defend(ref self: ContractState, defenders: Span<Span<usize>>) {
             assert!(self.turn_state.read() == TurnState::AwaitDefend);
-            let defender = if self.next_actor.read() == 1 {
-                self.player1
+            let (defender, attacker) = if self.next_actor.read() == 1 {
+                (self.player1, self.player2)
             } else {
-                self.player2
+                (self.player2, self.player1)
             };
             assert!(defender.id.read() == starknet::get_caller_address());
+            assert!(defenders.len() == self.attack.length.read());
+            let mut damage: usize = 0;
+            let mut dead_attackers: Felt252Dict<bool> = Default::default();
+            let mut dead_defenders: Felt252Dict<bool> = Default::default();
+            for i in 0..defenders.len() {
+                let specific_defenders = *defenders[i];
+                let attacker_in_arena = self.attack.values.read(i);
+                let attacker_in_deck = attacker.arena.values.read(attacker_in_arena);
+                let specific_attacker = attacker.deck.entry(attacker_in_deck);
+                if specific_defenders.is_empty() {
+                    damage += specific_attacker.attack.read();
+                    continue;
+                }
+                let mut attacker_attack = specific_attacker.attack.read();
+                let mut attacker_defense = specific_attacker.defense.read();
+                for defender_in_arena in specific_defenders {
+                    let defender_in_deck = defender.arena.values.read(*defender_in_arena);
+                    let specific_defender = defender.deck.entry(defender_in_deck);
+                    let defender_attack = specific_defender.attack.read();
+                    let defender_defense = specific_defender.defense.read();
+                    let defender_life = defender_defense.saturating_sub(attacker_attack);
+                    attacker_defense = attacker_defense.saturating_sub(defender_attack);
+                    if defender_life == 0 {
+                        dead_defenders.insert((*defender_in_arena).into(), true);
+                    }
+                    if attacker_defense == 0 {
+                        dead_attackers.insert(attacker_in_arena.into(), true);
+                        break;
+                    }
+                    if defender_life != 0 {
+                        break;
+                    }
+                    attacker_attack -= defender_defense;
+                }
+            };
+            let mut writer = 0;
+            for reader in 0..attacker.arena.length.read() {
+                if !dead_attackers.get(reader.into()) {
+                    attacker.arena.values.write(writer, attacker.arena.values.read(reader));
+                    writer += 1;
+                }
+            };
+            attacker.arena.length.write(writer);
+            let mut writer = 0;
+            for reader in 0..defender.arena.length.read() {
+                if !dead_attackers.get(reader.into()) {
+                    defender.arena.values.write(writer, defender.arena.values.read(reader));
+                    writer += 1;
+                }
+            };
+            defender.arena.length.write(writer);
+            defender.life.write(defender.life.read().saturating_sub(damage));
 
             self.turn_state.write(TurnState::AwaitFinalize);
 
-            self.emit(Defend {
-                player_id: self.next_actor.read(),
-                deploy_cards: deploy_cards,
-            });
+            self.emit(Defend { player_id: self.next_actor.read(), defenders });
 
             self.switch();
         }
 
         fn finalize(ref self: ContractState, redeploy: Span<usize>, next_seed: felt252) {
             assert!(self.turn_state.read() == TurnState::AwaitFinalize);
-            let attacker = if self.next_actor.read() == 1 {
-                self.player1
+            let (attacker, defender) = if self.next_actor.read() == 1 {
+                (self.player1, self.player2)
             } else {
-                self.player2
+                (self.player2, self.player1)
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
+            assert!(defender.life.read() != 0);
 
             let mut cost = 0;
             for card in redeploy {
@@ -251,34 +296,32 @@ mod game {
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
 
-            self.emit(Finalize {
-                player_id: self.next_actor.read(),
-                redeploy: redeploy,
-                next_seed: next_seed,
-            });
+            self
+                .emit(
+                    Finalize {
+                        player_id: self.next_actor.read(), redeploy: redeploy, next_seed: next_seed,
+                    },
+                );
 
             self.switch();
         }
 
         fn win(ref self: ContractState, seed: felt252) {
             assert!(self.turn_state.read() == TurnState::AwaitFinalize);
-            let attacker = if self.next_actor.read() == 1 {
-                self.player1
+            let (attacker, defender) = if self.next_actor.read() == 1 {
+                (self.player1, self.player2)
             } else {
-                self.player2
+                (self.player2, self.player1)
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
+            assert!(defender.life.read() == 0);
 
             self.turn_state.write(TurnState::AwaitDeployAndAttack);
 
-            self.emit(Win {
-                player_id: self.next_actor.read(),
-                seed: seed,
-            });
+            self.emit(Win { player_id: self.next_actor.read(), seed: seed });
 
             self.switch();
         }
-
     }
 
     #[generate_trait]
