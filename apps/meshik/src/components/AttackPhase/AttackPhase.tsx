@@ -1,5 +1,7 @@
 import { Card as CardType } from '../../types/card';
 import { Card } from '../Card/Card';
+import { Button } from "@/components/ui/button"
+
 
 interface AttackPhaseProps {
     cards: CardType[];
@@ -22,12 +24,12 @@ export function AttackPhase({ cards, onAttack, onEndAttack }: AttackPhaseProps) 
                     />
                 ))}
             </div>
-            <button
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            <Button
                 onClick={onEndAttack}
+                className="w-full"
             >
                 End Attack Phase
-            </button>
+            </Button>
         </div>
     );
 }

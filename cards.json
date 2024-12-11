@@ -26,5 +26,12 @@
         "attack": 4,
         "defense": 4,
         "img_url": "https://example.com/image4.png"
+    },
+    "5": {
+        "cost": 0,
+        "resources": 1,
+        "attack": 0,
+        "defense": 0,
+        "img_url": "https://example.com/image5.png"
     }
   }

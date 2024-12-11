@@ -5,49 +5,92 @@ import { GameBoard } from '../GameBoard/GameBoard';
 import { PlayerStats } from '../PlayerStats/PlayerStats';
 import { AttackPhase } from '../AttackPhase/AttackPhase';
 import { DefensePhase } from '../DefensePhase/DefensePhase';
-import { generateDeck, generateId } from '../../lib/utils';
+import { StartScreen } from '../StartScreen/StartScreen';
 import { GameState, } from '../../types/game_state';
 import { Player } from '../../types/player';
+import { generateInitialDeck, generateId } from '../../lib/utils';
 import { Card as CardType } from '../../types/card';
+import { CardInfo } from '../../types/card_info';
 import { Button } from "@/components/ui/button"
 
-
 export function Game() {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [
-      { id: '1', name: 'Player 1', life: 20, hand: [], battlefield: [], library: [], mana: 0, activeMana: 0, playedManaThisTurn: false },
-      { id: '2', name: 'Player 2', life: 20, hand: [], battlefield: [], library: [], mana: 0, activeMana: 0, playedManaThisTurn: false },
-    ],
-    activePlayer: 0,
-    turn: 1,
-    phase: 'main',
-    attackingCards: [],
-    defendingCards: [],
-  });
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [players, setPlayers] = useState<[Player | null, Player | null]>([null, null]);
 
-  useEffect(() => {
-    // Initialize the game
-    const player1Deck = generateDeck();
-    const player2Deck = generateDeck();
+  const handleGameStart = (playerIndex: number, address: string, cardLibrary: Record<string, CardInfo>) => {
+    const newPlayer: Player = {
+      id: `player_${playerIndex + 1}`,
+      name: `Player ${playerIndex + 1}`,
+      address,
+      life: 20,
+      hand: [],
+      battlefield: [],
+      deck: [], // Changed from library to deck
+      mana: 0,
+      activeMana: 0,
+      playedManaThisTurn: false,
+    };
 
-    setGameState(prevState => ({
-      ...prevState,
+    setPlayers(prevPlayers => {
+      const newPlayers = [...prevPlayers] as [Player | null, Player | null];
+      newPlayers[playerIndex] = newPlayer;
+      return newPlayers;
+    });
+
+    if (playerIndex === 1) {
+      initializeGame(players[0]!, newPlayer, cardLibrary);
+    }
+  };
+
+  const initializeGame = (player1: Player, player2: Player, cardLibrary: Record<string, CardInfo>) => {
+    const player1Deck = generateInitialDeck(cardLibrary);
+    const player2Deck = generateInitialDeck(cardLibrary);
+
+    const drawInitialHand = (deck: CardType[]): [CardType[], CardType[]] => {
+      const hand = deck.slice(0, 7);
+      const remainingDeck = deck.slice(7);
+      return [hand, remainingDeck];
+    };
+
+    const [player1Hand, player1RemainingDeck] = drawInitialHand(player1Deck);
+    const [player2Hand, player2RemainingDeck] = drawInitialHand(player2Deck);
+
+    const initialGameState: GameState = {
       players: [
-        { ...prevState.players[0], library: player1Deck, hand: player1Deck.slice(0, 7) },
-        { ...prevState.players[1], library: player2Deck, hand: player2Deck.slice(0, 7) },
+        { ...player1, deck: player1RemainingDeck, hand: player1Hand },
+        { ...player2, deck: player2RemainingDeck, hand: player2Hand },
       ],
-    }));
-  }, []);
+      activePlayer: 0,
+      turn: 1,
+      phase: 'main',
+      attackingCards: [],
+      defendingCards: [],
+    };
+
+    setGameState(initialGameState);
+  };
+
+  if (!gameState) {
+    if (!players[0]) {
+      return <StartScreen onGameStart={(address, cardInfo) => handleGameStart(0, address, cardInfo)} isFirstPlayer={true} />;
+    } else if (!players[1]) {
+      return <StartScreen onGameStart={(address, cardInfo) => handleGameStart(1, address, cardInfo)} isFirstPlayer={false} />;
+    }
+    return <div>Loading...</div>;
+  }
 
   const drawCard = (playerId: string) => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const playerIndex = prevState.players.findIndex(p => p.id === playerId);
-      if (playerIndex === -1 || prevState.players[playerIndex].library.length === 0) return prevState;
+      if (playerIndex === -1 || prevState.players[playerIndex].deck.length === 0) return prevState;
 
       const newState = { ...prevState };
-      const [drawnCard, ...remainingLibrary] = newState.players[playerIndex].library;
-      newState.players[playerIndex].hand.push(drawnCard);
-      newState.players[playerIndex].library = remainingLibrary;
+      const [drawnCard, ...remainingDeck] = newState.players[playerIndex].deck;
+      if (drawnCard) {
+        newState.players[playerIndex].hand.push(drawnCard);
+        newState.players[playerIndex].deck = remainingDeck;
+      }
       // call contract with drawnCard
 
       return newState;
@@ -56,6 +99,7 @@ export function Game() {
 
   const playCard = (playerId: string, cardIndex: number) => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const playerIndex = prevState.players.findIndex(p => p.id === playerId);
       if (playerIndex === -1 || playerIndex !== prevState.activePlayer) return prevState;
 
@@ -87,6 +131,7 @@ export function Game() {
 
   const startAttackPhase = () => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const activePlayer = prevState.players[prevState.activePlayer];
       const creaturesAvailableToAttack = activePlayer.battlefield.some(card => card.type === 'creature' && !card.tapped);
 
@@ -107,6 +152,7 @@ export function Game() {
 
   const handleAttack = (cardId: string) => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const newState = { ...prevState };
       const activePlayer = newState.players[newState.activePlayer];
       const attackingCard = activePlayer.battlefield.find(card => card.id === cardId);
@@ -121,14 +167,18 @@ export function Game() {
   };
 
   const endAttackPhase = () => {
-    setGameState(prevState => ({
-      ...prevState,
-      phase: 'defense',
-    }));
+    setGameState(prevState => {
+      if (!prevState) return null;
+      return {
+        ...prevState,
+        phase: 'defense',
+      };
+    });
   };
 
   const handleDefend = (defenderId: string, attackerId: string) => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const newState = { ...prevState };
       const defendingPlayer = newState.players[(newState.activePlayer + 1) % 2];
       const defendingCard = defendingPlayer.battlefield.find(card => card.id === defenderId);
@@ -145,6 +195,7 @@ export function Game() {
 
   const endDefensePhase = () => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const newState = { ...prevState };
 
       // Resolve combat
@@ -152,18 +203,18 @@ export function Game() {
       const defendingPlayer = newState.players[(newState.activePlayer + 1) % 2];
 
       // Create a copy of attacking cards to modify during combat
-      const attackingCardsCopy = newState.attackingCards.map(card => ({ ...card, currentPower: card.power, currentToughness: card.toughness }));
+      const attackingCardsCopy = newState.attackingCards.map(card => ({ ...card, currentPower: card.attack, currentToughness: card.defense }));
 
       // Process defenders
       newState.defendingCards.forEach(defender => {
         const attacker = attackingCardsCopy.find(card => card.id === defender.defending);
         if (attacker && attacker.currentPower && attacker.currentPower > 0) {
           // Combat between attacker and defender
-          if (defender.toughness !== undefined && attacker.currentPower !== undefined) {
-            defender.toughness -= attacker.currentPower;
+          if (defender.defense !== undefined && attacker.currentPower !== undefined) {
+            defender.defense -= attacker.currentPower;
           }
-          if (attacker.currentToughness !== undefined && defender.power !== undefined) {
-            attacker.currentToughness -= defender.power;
+          if (attacker.currentToughness !== undefined && defender.attack !== undefined) {
+            attacker.currentToughness -= defender.attack;
           }
           // Reduce attacker's power for subsequent combats
           attacker.currentPower = 0; // Attacker's power is fully used in single combat
@@ -181,7 +232,7 @@ export function Game() {
       // Remove destroyed creatures immediately
       const removeDestroyedCreatures = (battlefield: CardType[]) =>
         battlefield.filter(card =>
-          card.type !== 'creature' || (card.toughness !== undefined && card.toughness > 0)
+          card.type !== 'creature' || (card.defense !== undefined && card.defense > 0)
         );
 
       attackingPlayer.battlefield = removeDestroyedCreatures(attackingPlayer.battlefield);
@@ -196,8 +247,8 @@ export function Game() {
               attacking: false,
               defending: undefined,
               tapped: card.attacking || card.defending ? true : card.tapped,
-              power: card.power, // Reset power to original value
-              toughness: card.toughness, // Reset toughness to original value
+              attack: card.attack, // Reset attack to original value
+              defense: card.defense, // Reset defense to original value
             };
           }
           return card;
@@ -219,6 +270,7 @@ export function Game() {
 
   const endTurn = () => {
     setGameState(prevState => {
+      if (!prevState) return null;
       const newState = { ...prevState };
       newState.activePlayer = (prevState.activePlayer + 1) % 2;
       newState.turn = prevState.activePlayer === 1 ? prevState.turn + 1 : prevState.turn;
@@ -231,9 +283,11 @@ export function Game() {
       newState.players[newState.activePlayer].battlefield.forEach(card => card.tapped = false);
 
       // Draw a card for the new active player
-      const [drawnCard, ...remainingLibrary] = newState.players[newState.activePlayer].library;
-      newState.players[newState.activePlayer].hand.push(drawnCard);
-      newState.players[newState.activePlayer].library = remainingLibrary;
+      const [drawnCard, ...remainingDeck] = newState.players[newState.activePlayer].deck;
+      if (drawnCard) {
+        newState.players[newState.activePlayer].hand.push(drawnCard);
+        newState.players[newState.activePlayer].deck = remainingDeck;
+      }
 
       return newState;
     });

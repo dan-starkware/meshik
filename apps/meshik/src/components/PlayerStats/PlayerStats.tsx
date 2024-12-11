@@ -1,5 +1,6 @@
 import { Player } from '../../types/player';
 
+
 interface PlayerStatsProps {
     player: Player;
 }
@@ -14,7 +15,7 @@ export function PlayerStats({ player }: PlayerStatsProps) {
                 </div>
                 <div>Mana: {player.activeMana}/{player.mana}</div>
                 <div>Hand: {player.hand.length}</div>
-                <div>Library: {player.library.length}</div>
+                <div>Deck: {player.deck.length}</div>
                 <div>Battlefield: {player.battlefield.length}</div>
             </div>
         </div>

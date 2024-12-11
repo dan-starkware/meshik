@@ -51,6 +51,7 @@ export function Card({
     ${isUsed ? 'rotate-[15deg]' : ''}
     ${interactive ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
     transition-all duration-300 ease-in-out
+    overflow-hidden
   `;
 
     return (
@@ -60,15 +61,15 @@ export function Card({
         >
             {!faceDown ? (
                 <>
-                    <div className="font-bold truncate">{card.name}</div>
+                    <div className="font-bold truncate">Card {card.id}</div>
                     {!isSmall && (
                         <>
                             {card.type === 'creature' && (
                                 <div className="flex-grow flex items-center justify-center">
                                     <img
-                                        src={`/placeholder.svg?height=100&width=100`}
+                                        src={card.img_url}
                                         alt={card.name}
-                                        className="w-24 h-24 object-cover rounded"
+                                        className="w-full h-full object-cover rounded"
                                     />
                                 </div>
                             )}
@@ -76,7 +77,7 @@ export function Card({
                                 {card.type === 'creature' && (
                                     <div className="flex justify-between items-center mt-2">
                                         <span>Cost: {card.cost}</span>
-                                        <span>{card.power}/{card.toughness}</span>
+                                        <span>{card.attack}/{card.defense}</span>
                                     </div>
                                 )}
                             </div>

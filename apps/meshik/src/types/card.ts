@@ -1,11 +1,9 @@
-export interface Card {
+import { CardInfo } from './card_info';
+
+export interface Card extends CardInfo {
     id: string;
-    name: string;
-    type: 'creature' | 'mana'
-    cost?: number;
-    power?: number;
-    toughness?: number;
     tapped: boolean;
     attacking?: boolean;
-    defending?: string; // ID of the card it's defending against
+    defending?: string;
+    type: 'mana' | 'creature';
 }
