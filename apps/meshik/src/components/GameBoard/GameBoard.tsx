@@ -17,7 +17,7 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
       </h3>
       <div className="flex flex-wrap gap-2 justify-start">
         {player.hand.map((card, cardIndex) => (
-          <div key={card.id} className="w-24 h-32"> {/* Fixed-size container */}
+          <div key={card.id} className="w-36 h-48"> {/* Updated size */}
             <Card
               card={isActivePlayer ? card : { ...card, name: 'Hidden' }}
               onClick={() => isActivePlayer && onPlayCard(player.id, cardIndex)}
@@ -93,3 +93,4 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
     </div>
   );
 }
+

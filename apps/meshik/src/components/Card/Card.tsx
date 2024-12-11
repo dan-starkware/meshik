@@ -27,14 +27,12 @@ export function Card({
         ? 'bg-gray-400'
         : card.type === 'mana'
             ? 'bg-blue-500'
-            : card.type === 'creature'
-                ? 'bg-red-500'
-                : 'bg-purple-500';
+            : 'bg-red-500';
 
     const isSmall = isOnBattlefield && card.type === 'mana';
 
     const cardClasses = `
-    ${isSmall ? 'w-12 h-12' : 'w-24 h-32'}
+    ${isSmall ? 'w-16 h-16' : 'w-36 h-48'}
     ${bgColor}
     ${isUsed ? 'opacity-50' : ''}
     ${isAttacking ? 'border-4 border-red-600' : ''}
@@ -64,14 +62,25 @@ export function Card({
                 <>
                     <div className="font-bold truncate">{card.name}</div>
                     {!isSmall && (
-                        <div>
+                        <>
                             {card.type === 'creature' && (
-                                <div className="text-right">
-                                    Cost: {card.cost} | {card.power}/{card.toughness}
+                                <div className="flex-grow flex items-center justify-center">
+                                    <img
+                                        src={`/placeholder.svg?height=100&width=100`}
+                                        alt={card.name}
+                                        className="w-24 h-24 object-cover rounded"
+                                    />
                                 </div>
                             )}
-                            {/* {card.type === 'spell' && <div className="text-right">Cost: {card.cost}</div>} */}
-                        </div>
+                            <div>
+                                {card.type === 'creature' && (
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span>Cost: {card.cost}</span>
+                                        <span>{card.power}/{card.toughness}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     )}
                 </>
             ) : (

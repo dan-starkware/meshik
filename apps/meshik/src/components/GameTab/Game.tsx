@@ -11,6 +11,7 @@ import { Player } from '../../types/player';
 import { Card as CardType } from '../../types/card';
 import { Button } from "@/components/ui/button"
 
+
 export function Game() {
   const [gameState, setGameState] = useState<GameState>({
     players: [
@@ -71,7 +72,7 @@ export function Game() {
         } else {
           return prevState; // Can't play more than one mana per turn
         }
-      } else if (card.cost && player.activeMana >= card.cost) {
+      } else if (card.type === 'creature' && card.cost && player.activeMana >= card.cost) {
         player.battlefield.push({ ...card, id: generateId() }); // Create a new object with a new ID
         player.hand.splice(cardIndex, 1);
         player.activeMana -= card.cost;
