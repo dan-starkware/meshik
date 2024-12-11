@@ -7,6 +7,8 @@ trait IGame<T> {
     fn defend(ref self: T, defenders: Span<Span<usize>>);
     fn finalize(ref self: T, redeploy: Span<(usize, usize)>, next_seed: felt252);
     fn win(ref self: T, seed: felt252);
+
+    fn validate_and_get_order(self: @T, seed: felt252, actor: usize) -> Array<usize>;
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -24,7 +26,7 @@ mod game {
 
     use starknet::storage::{
         Map, Vec, StoragePathEntry, StorageMapReadAccess, StoragePointerWriteAccess,
-        StoragePointerReadAccess, StorageMapWriteAccess, MutableVecTrait,
+        StoragePointerReadAccess, StorageMapWriteAccess, MutableVecTrait, VecTrait,
     };
 
     use core::num::traits::SaturatingSub;
@@ -346,54 +348,50 @@ mod game {
             };
             assert!(attacker.id.read() == starknet::get_caller_address());
             assert!(defender.life.read() == 0);
-
-            assert!(core::pedersen::pedersen(seed, seed) == attacker.seed_commit.read());
-            let mut allocated: Felt252Dict<bool> = Default::default();
-            let initial_cards = self.initial_cards.read();
-            let mut initial_cards_seed = core::pedersen::pedersen(
-                seed, defender.seed_commit.read(),
-            );
-            let card_count = self.card_count.read();
-            for i in 0..initial_cards {
-                let card_idx = loop {
-                    let v: u256 = initial_cards_seed.into() % card_count.into();
-                    let idx: usize = v.try_into().unwrap();
-                    initial_cards_seed =
-                        core::pedersen::pedersen(initial_cards_seed, initial_cards_seed);
-                    let (e, existing) = allocated.entry(idx.into());
-                    allocated = e.finalize(true);
-                    if !existing {
-                        break idx;
-                    }
-                };
-                assert!(attacker.order_to_card.read(i) == card_idx + 1);
-            };
-            let deck_pulled_cards = attacker.deck_pulled_cards.read();
-
-            let mut seed_idx = 0;
-            for i in initial_cards..deck_pulled_cards {
-                let mut card_seed = core::pedersen::pedersen(
-                    seed, attacker.seeds.at(seed_idx).read(),
-                );
-                seed_idx += 1;
-                let card_idx = loop {
-                    let v: u256 = card_seed.into() % card_count.into();
-                    let idx: usize = v.try_into().unwrap();
-                    card_seed = core::pedersen::pedersen(card_seed, card_seed);
-                    let (e, existing) = allocated.entry(idx.into());
-                    allocated = e.finalize(true);
-                    if !existing {
-                        break idx;
-                    }
-                };
-                assert!(attacker.order_to_card.read(i) == card_idx + 1);
-            };
+            self.validate_and_get_order(seed, self.next_actor.read());
 
             self.turn_state.write(TurnState::Done);
 
             self.emit(Win { player_id: self.next_actor.read(), seed: seed });
 
             self.switch();
+        }
+
+        fn validate_and_get_order(
+            self: @ContractState, seed: felt252, actor: usize,
+        ) -> Array<usize> {
+            let (actor, other) = if actor == 1 {
+                (self.player1, self.player2)
+            } else {
+                (self.player2, self.player1)
+            };
+            let mut order = array![];
+            assert!(core::pedersen::pedersen(seed, seed) == actor.seed_commit.read());
+            let mut allocated: Felt252Dict<bool> = Default::default();
+            let initial_cards = self.initial_cards.read();
+            let mut initial_cards_seed = core::pedersen::pedersen(seed, other.seed_commit.read());
+            let card_count = self.card_count.read();
+            for i in 0..initial_cards {
+                let card_idx = seed_to_idx(
+                    ref allocated, ref initial_cards_seed, card_count.into(),
+                );
+                let expected_card_index = actor.order_to_card.read(i);
+                assert!(expected_card_index == 0 || expected_card_index == card_idx + 1);
+                order.append(card_idx);
+            };
+            let mut seed_idx = 0;
+            while let Option::Some(seed_ptr) = actor.seeds.get(seed_idx) {
+                seed_idx += 1;
+                let mut card_seed = core::pedersen::pedersen(seed, seed_ptr.read());
+                let card_idx = seed_to_idx(ref allocated, ref card_seed, card_count.into());
+                let expected_card_index = actor.order_to_card.read(order.len());
+                assert!(expected_card_index == 0 || expected_card_index == card_idx + 1);
+                order.append(card_idx);
+                if order.len() == card_count {
+                    break;
+                }
+            };
+            order
         }
     }
 
@@ -405,6 +403,18 @@ mod game {
             } else {
                 1
             });
+        }
+    }
+    fn seed_to_idx(ref allocated: Felt252Dict<bool>, ref seed: felt252, count: u256) -> usize {
+        loop {
+            let v: u256 = seed.into() % count;
+            let idx: usize = v.try_into().unwrap();
+            seed = core::pedersen::pedersen(seed, seed);
+            let (e, existing) = allocated.entry(idx.into());
+            allocated = e.finalize(true);
+            if !existing {
+                break idx;
+            }
         }
     }
 }
