@@ -1,13 +1,13 @@
 {
-  "name": "catering-app",
+  "name": "meshik-app",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev:starkitchen": "pnpm --filter @catering-app/starkitchen dev",
-    "build:starkitchen": "pnpm --filter @catering-app/starkitchen build",
-    "preview:starkitchen": "pnpm --filter @catering-app/starkitchen preview",
-    "deploy:starkitchen": "pnpm --filter @catering-app/starkitchen run deploy"
+    "dev:meshik": "pnpm --filter @meshik-app/meshik dev",
+    "build:meshik": "pnpm --filter @meshik-app/meshik build",
+    "preview:meshik": "pnpm --filter @meshik-app/meshik preview",
+    "deploy:meshik": "pnpm --filter @meshik-app/meshik run deploy"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -15,6 +15,6 @@
   "workspaces": [
     "packages/contracts",
     "packages/starknet-contract-connect",
-    "apps/starkitchen"
+    "apps/meshik"
   ]
 }

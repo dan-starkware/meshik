@@ -36,11 +36,11 @@ export const Header = ({
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center space-x-4 mb-4 md:mb-0">
             <img
-              src={`${SrcPrefix}/starkitchen-logo-transparent.png`}
-              alt="StarKitchen Logo"
+              src={`${SrcPrefix}/meshik-logo-transparent.png`}
+              alt="Meshik Logo"
               className="h-12"
             />
-            <h1 className="text-3xl font-bold text-gray-900">StarKitchen</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Meshik</h1>
           </div>
           <div className="flex items-center space-x-4">
             {wallet?.isConnected ? (
