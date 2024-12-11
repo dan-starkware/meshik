@@ -257,7 +257,7 @@ mod game {
             attacker.arena.length.write(writer);
             let mut writer = 0;
             for reader in 0..defender.arena.length.read() {
-                if !dead_attackers.get(reader.into()) {
+                if !dead_defenders.get(reader.into()) {
                     defender.arena.values.write(writer, defender.arena.values.read(reader));
                     writer += 1;
                 }
