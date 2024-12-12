@@ -12,7 +12,7 @@ trait IGame<T> {
     fn full_state(self: @T) -> FullState;
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, Debug)]
 struct FullState {
     player1: PlayerState,
     player2: PlayerState,
@@ -21,7 +21,7 @@ struct FullState {
     attackers: Array<usize>,
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, Debug)]
 struct PlayerState {
     cards: Array<Card>,
     arena: Array<usize>,
@@ -30,7 +30,7 @@ struct PlayerState {
 }
 
 
-#[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
+#[derive(Copy, Drop, PartialEq, Serde, starknet::Store, Debug)]
 enum TurnState {
     #[default]
     Setup,
@@ -40,7 +40,7 @@ enum TurnState {
     Done,
 }
 
-#[derive(Copy, Drop, Serde, starknet::Store)]
+#[derive(Copy, Drop, Serde, starknet::Store, Debug)]
 struct Card {
     cost: usize,
     resources: usize,
@@ -442,7 +442,7 @@ mod game {
             let player1 = PlayerState {
                 cards,
                 arena,
-                hand_size: card_count - self.player1.discarded.read() - arena_length,
+                hand_size: self.player1.deck_pulled_cards.read() - self.player1.discarded.read() - arena_length,
                 life: self.player1.life.read(),
             };
 
@@ -458,7 +458,7 @@ mod game {
             let player2 = PlayerState {
                 cards,
                 arena,
-                hand_size: card_count - self.player2.discarded.read() - arena_length,
+                hand_size: self.player2.deck_pulled_cards.read() - self.player2.discarded.read() - arena_length,
                 life: self.player2.life.read(),
             };
             let mut attackers = array![];
@@ -496,5 +496,85 @@ mod game {
                 break idx;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use starknet::syscalls::deploy_syscall;
+    use starknet::SyscallResultTrait;
+    use super::{game, IGameSafeDispatcher, IGameSafeDispatcherTrait, Card};
+
+    #[test]
+    fn test_game() {
+        let seed0 = 0;
+        let seed1 = 1;
+        let (contract_address, _) = deploy_syscall(
+            game::TEST_CLASS_HASH.try_into().unwrap(),
+            0,
+            [
+                0, // player1.
+                0, // player2.
+                5, // life.
+                2, // initial_cards.
+                core::pedersen::pedersen(seed0, seed0), // seed_commit.
+                7, // card count.
+                0, // cost0.
+                1, // resources0.
+                0, // attack0.
+                0, // defense0.
+                0, // cost1.
+                1, // resources1.
+                0, // attack1.
+                0, // defense1.
+                0, // cost2.
+                1, // resources2.
+                0, // attack2.
+                0, // defense2.
+                1, // cost3.
+                0, // resources3.
+                1, // attack3.
+                2, // defense3.
+                1, // cost4.
+                0, // resources4.
+                2, // attack4.
+                1, // defense4.
+                2, // cost5.
+                0, // resources5.
+                2, // attack5.
+                3, // defense5.
+                2, // cost6.
+                0, // resources6.
+                3, // attack6.
+                2 // defense6.
+            ]
+                .span(),
+            false,
+        )
+            .unwrap_syscall();
+        let game = IGameSafeDispatcher { contract_address };
+        game
+            .join(
+                core::pedersen::pedersen(seed1, seed1),
+                [
+                    Card { cost: 0, resources: 1, attack: 0, defense: 0 },
+                    Card { cost: 0, resources: 1, attack: 0, defense: 0 },
+                    Card { cost: 0, resources: 1, attack: 0, defense: 0 },
+                    Card { cost: 1, resources: 0, attack: 2, defense: 1 },
+                    Card { cost: 1, resources: 0, attack: 1, defense: 2 },
+                    Card { cost: 2, resources: 0, attack: 3, defense: 1 },
+                    Card { cost: 2, resources: 0, attack: 1, defense: 3 },
+                ]
+                    .span(),
+            )
+            .unwrap_syscall();
+        let order = game.validate_and_get_order(seed0, 1).unwrap_syscall();
+        game.deploy_and_attack([(*order[1], 1)].span(), [].span()).unwrap_syscall();
+        game.defend([].span()).unwrap_syscall();
+        game.finalize([].span(), 2).unwrap_syscall();
+        let order = game.validate_and_get_order(seed1, 2).unwrap_syscall();
+        game.deploy_and_attack([(*order[1], 1)].span(), [].span()).unwrap_syscall();
+        game.defend([].span()).unwrap_syscall();
+        println!("{:?}", game.full_state());
     }
 }
