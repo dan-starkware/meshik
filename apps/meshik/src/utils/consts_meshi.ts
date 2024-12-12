@@ -5,520 +5,369 @@ import { Abi } from '@starknet-react/core';
 export const SrcPrefix =
   import.meta.env.MODE === 'production' ? '/meshik-app' : '';
 
+
+/// The class hash of the game contract.
+export const CLASS_HASH =
+  '0x07ab6114dcf085b74554be1b673d85253e584aaf1782cc8820297e3f03bf2e7c';
+
 /// The address of the deployed contract.
 export const CONTRACT_ADDRESS =
-  '0x049c75609bb077a9427bc26a9935472ec75e5508ed216ef7f7ad2693397deebc';
+  '0x3c750f8e92ffda68beb7ec7655739bd03cc81493294a4ff027f270517fbc7e9';
+
+/// Universal deployer contract address
+export const UNIVERSAL_DEPLOYER_CONTRACT_ADDRESS =
+  '0x0684f06d5582efe407c70da50854f33e39c07b5009523330bdcfbbb4b99330b0';
+
 /// The ABI of the deployed contract. Can be found on starkscan.
 /// For the above contract, the ABI can be found at:
 /// https://sepolia.starkscan.co/contract/0x049c75609bb077a9427bc26a9935472ec75e5508ed216ef7f7ad2693397deebc
 /// And the ABI is accessible under the 'Class Code/History' tab -> 'Copy ABI Code' button.
+export const ABI_UNIVERSAL_DEPLOYER = [
+  {
+    "name": "ABIImpl",
+    "type": "impl",
+    "interface_name": "meshik::deployer::IDeployer"
+  },
+  {
+    "name": "core::array::Span::<core::felt252>",
+    "type": "struct",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<core::felt252>"
+      }
+    ]
+  },
+  {
+    "name": "meshik::deployer::IDeployer",
+    "type": "interface",
+    "items": [
+      {
+        "name": "deploy",
+        "type": "function",
+        "inputs": [
+          {
+            "name": "class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          },
+          {
+            "name": "salt",
+            "type": "core::felt252"
+          },
+          {
+            "name": "payload",
+            "type": "core::array::Span::<core::felt252>"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "(core::starknet::contract_address::ContractAddress, core::array::Span::<core::felt252>)"
+          }
+        ],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "kind": "enum",
+    "name": "meshik::deployer::deployer::Event",
+    "type": "event",
+    "variants": []
+  }
+] as const satisfies Abi;
+
 export const ABI = [
   {
-    name: 'RegistrationImpl',
-    type: 'impl',
-    interface_name: 'event_manager::event_manager::IRegistration',
+    "type": "impl",
+    "name": "ABIImpl",
+    "interface_name": "meshik::game::IGame"
   },
   {
-    name: 'event_manager::utils::time::Time',
-    type: 'struct',
-    members: [
+    "type": "struct",
+    "name": "meshik::game::Card",
+    "members": [
       {
-        name: 'seconds',
-        type: 'core::integer::u64',
+        "name": "cost",
+        "type": "core::integer::u32"
       },
-    ],
+      {
+        "name": "resources",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "attack",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "defense",
+        "type": "core::integer::u32"
+      }
+    ]
   },
   {
-    name: 'core::bool',
-    type: 'enum',
-    variants: [
+    "type": "struct",
+    "name": "core::array::Span::<meshik::game::Card>",
+    "members": [
       {
-        name: 'False',
-        type: '()',
-      },
-      {
-        name: 'True',
-        type: '()',
-      },
-    ],
+        "name": "snapshot",
+        "type": "@core::array::Array::<meshik::game::Card>"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::EventUserInfoInner',
-    type: 'struct',
-    members: [
+    "type": "struct",
+    "name": "core::array::Span::<core::integer::u32>",
+    "members": [
       {
-        name: 'time',
-        type: 'event_manager::utils::time::Time',
-      },
-      {
-        name: 'registered',
-        type: 'core::bool',
-      },
-      {
-        name: 'canceled',
-        type: 'core::bool',
-      },
-    ],
+        "name": "snapshot",
+        "type": "@core::array::Array::<core::integer::u32>"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::EventUserInfo',
-    type: 'struct',
-    members: [
+    "type": "struct",
+    "name": "core::array::Span::<core::array::Span::<core::integer::u32>>",
+    "members": [
       {
-        name: 'id',
-        type: 'core::integer::u32',
-      },
-      {
-        name: 'info',
-        type: 'event_manager::event_manager::EventUserInfoInner',
-      },
-    ],
+        "name": "snapshot",
+        "type": "@core::array::Array::<core::array::Span::<core::integer::u32>>"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::UserParticipation',
-    type: 'struct',
-    members: [
+    "type": "interface",
+    "name": "meshik::game::IGame",
+    "items": [
       {
-        name: 'user',
-        type: 'core::starknet::contract_address::ContractAddress',
+        "type": "function",
+        "name": "join",
+        "inputs": [
+          {
+            "name": "seed_commit",
+            "type": "core::felt252"
+          },
+          {
+            "name": "deck",
+            "type": "core::array::Span::<meshik::game::Card>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
       },
       {
-        name: 'n_participations',
-        type: 'core::integer::u32',
+        "type": "function",
+        "name": "deploy_and_attack",
+        "inputs": [
+          {
+            "name": "deploy_cards",
+            "type": "core::array::Span::<core::integer::u32>"
+          },
+          {
+            "name": "attack_cards",
+            "type": "core::array::Span::<core::integer::u32>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
       },
-    ],
+      {
+        "type": "function",
+        "name": "defend",
+        "inputs": [
+          {
+            "name": "defenders",
+            "type": "core::array::Span::<core::array::Span::<core::integer::u32>>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "finalize",
+        "inputs": [
+          {
+            "name": "redeploy",
+            "type": "core::array::Span::<core::integer::u32>"
+          },
+          {
+            "name": "next_seed",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "win",
+        "inputs": [
+          {
+            "name": "seed",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::EventInfoInner',
-    type: 'struct',
-    members: [
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
       {
-        name: 'time',
-        type: 'event_manager::utils::time::Time',
+        "name": "other",
+        "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        name: 'number_of_participants',
-        type: 'core::integer::u32',
+        "name": "life",
+        "type": "core::integer::u32"
       },
       {
-        name: 'canceled',
-        type: 'core::bool',
+        "name": "initial_cards",
+        "type": "core::integer::u32"
       },
       {
-        name: 'locked',
-        type: 'core::bool',
+        "name": "seed_commit",
+        "type": "core::felt252"
       },
       {
-        name: 'description',
-        type: 'core::felt252',
-      },
-    ],
+        "name": "deck",
+        "type": "core::array::Span::<meshik::game::Card>"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::EventInfo',
-    type: 'struct',
-    members: [
+    "type": "event",
+    "name": "meshik::game::game::JoinedSeedAndDeck",
+    "kind": "struct",
+    "members": [
       {
-        name: 'id',
-        type: 'core::integer::u32',
+        "name": "player_id",
+        "type": "core::integer::u32",
+        "kind": "data"
       },
       {
-        name: 'info',
-        type: 'event_manager::event_manager::EventInfoInner',
+        "name": "deck",
+        "type": "core::array::Span::<meshik::game::Card>",
+        "kind": "data"
       },
-    ],
+      {
+        "name": "seed_commit",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
   },
   {
-    name: 'core::array::Span::<core::starknet::contract_address::ContractAddress>',
-    type: 'struct',
-    members: [
+    "type": "event",
+    "name": "meshik::game::game::DeployAndAttack",
+    "kind": "struct",
+    "members": [
       {
-        name: 'snapshot',
-        type: '@core::array::Array::<core::starknet::contract_address::ContractAddress>',
+        "name": "player_id",
+        "type": "core::integer::u32",
+        "kind": "data"
       },
-    ],
+      {
+        "name": "deploy_cards",
+        "type": "core::array::Span::<core::integer::u32>",
+        "kind": "data"
+      },
+      {
+        "name": "attack_cards",
+        "type": "core::array::Span::<core::integer::u32>",
+        "kind": "data"
+      }
+    ]
   },
   {
-    name: 'event_manager::event_manager::IRegistration',
-    type: 'interface',
-    items: [
+    "type": "event",
+    "name": "meshik::game::game::Defend",
+    "kind": "struct",
+    "members": [
       {
-        name: 'get_user_events_by_time',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-          {
-            name: 'start',
-            type: 'event_manager::utils::time::Time',
-          },
-          {
-            name: 'end',
-            type: 'event_manager::utils::time::Time',
-          },
-        ],
-        outputs: [
-          {
-            type: 'core::array::Array::<event_manager::event_manager::EventUserInfo>',
-          },
-        ],
-        state_mutability: 'view',
+        "name": "player_id",
+        "type": "core::integer::u32",
+        "kind": "data"
       },
       {
-        name: 'n_events',
-        type: 'function',
-        inputs: [],
-        outputs: [
-          {
-            type: 'core::integer::u32',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'get_participation_report_by_time',
-        type: 'function',
-        inputs: [
-          {
-            name: 'start',
-            type: 'event_manager::utils::time::Time',
-          },
-          {
-            name: 'end',
-            type: 'event_manager::utils::time::Time',
-          },
-        ],
-        outputs: [
-          {
-            type: 'core::array::Array::<event_manager::event_manager::UserParticipation>',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'event_info',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-        ],
-        outputs: [
-          {
-            type: 'event_manager::event_manager::EventInfoInner',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'get_events_infos_by_time',
-        type: 'function',
-        inputs: [
-          {
-            name: 'start',
-            type: 'event_manager::utils::time::Time',
-          },
-          {
-            name: 'end',
-            type: 'event_manager::utils::time::Time',
-          },
-        ],
-        outputs: [
-          {
-            type: 'core::array::Array::<event_manager::event_manager::EventInfo>',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'register',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'unregister',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'add_event',
-        type: 'function',
-        inputs: [
-          {
-            name: 'time',
-            type: 'core::felt252',
-          },
-          {
-            name: 'description',
-            type: 'core::felt252',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'modify_event_time',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-          {
-            name: 'time',
-            type: 'core::felt252',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'lock_event',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'unlock_event',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'set_event_canceled',
-        type: 'function',
-        inputs: [
-          {
-            name: 'event_id',
-            type: 'core::integer::u32',
-          },
-          {
-            name: 'canceled',
-            type: 'core::bool',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'add_allowed_user',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'remove_allowed_user',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'add_allowed_users',
-        type: 'function',
-        inputs: [
-          {
-            name: 'users',
-            type: 'core::array::Span::<core::starknet::contract_address::ContractAddress>',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-      {
-        name: 'is_allowed_user',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-        ],
-        outputs: [
-          {
-            type: 'core::bool',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'is_admin',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-        ],
-        outputs: [
-          {
-            type: 'core::bool',
-          },
-        ],
-        state_mutability: 'view',
-      },
-      {
-        name: 'add_admin',
-        type: 'function',
-        inputs: [
-          {
-            name: 'user',
-            type: 'core::starknet::contract_address::ContractAddress',
-          },
-        ],
-        outputs: [],
-        state_mutability: 'external',
-      },
-    ],
+        "name": "defenders",
+        "type": "core::array::Span::<core::array::Span::<core::integer::u32>>",
+        "kind": "data"
+      }
+    ]
   },
   {
-    name: 'constructor',
-    type: 'constructor',
-    inputs: [
+    "type": "event",
+    "name": "meshik::game::game::Finalize",
+    "kind": "struct",
+    "members": [
       {
-        name: 'admin',
-        type: 'core::starknet::contract_address::ContractAddress',
+        "name": "player_id",
+        "type": "core::integer::u32",
+        "kind": "data"
       },
-    ],
+      {
+        "name": "redeploy",
+        "type": "core::array::Span::<core::integer::u32>",
+        "kind": "data"
+      },
+      {
+        "name": "next_seed",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
   },
   {
-    kind: 'struct',
-    name: 'event_manager::event_manager::registration::UserRegistration',
-    type: 'event',
-    members: [
+    "type": "event",
+    "name": "meshik::game::game::Win",
+    "kind": "struct",
+    "members": [
       {
-        kind: 'key',
-        name: 'user',
-        type: 'core::starknet::contract_address::ContractAddress',
+        "name": "player_id",
+        "type": "core::integer::u32",
+        "kind": "data"
       },
       {
-        kind: 'key',
-        name: 'event_id',
-        type: 'core::integer::u32',
-      },
-      {
-        kind: 'data',
-        name: 'status',
-        type: 'core::bool',
-      },
-    ],
+        "name": "seed",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
   },
   {
-    kind: 'struct',
-    name: 'event_manager::event_manager::registration::EventChanged',
-    type: 'event',
-    members: [
+    "type": "event",
+    "name": "meshik::game::game::Event",
+    "kind": "enum",
+    "variants": [
       {
-        kind: 'data',
-        name: 'event_id',
-        type: 'core::integer::u32',
+        "name": "JoinedSeedAndDeck",
+        "type": "meshik::game::game::JoinedSeedAndDeck",
+        "kind": "nested"
       },
       {
-        kind: 'data',
-        name: 'time',
-        type: 'event_manager::utils::time::Time',
-      },
-    ],
-  },
-  {
-    kind: 'struct',
-    name: 'event_manager::event_manager::registration::EventCancellation',
-    type: 'event',
-    members: [
-      {
-        kind: 'data',
-        name: 'event_id',
-        type: 'core::integer::u32',
+        "name": "DeployAndAttack",
+        "type": "meshik::game::game::DeployAndAttack",
+        "kind": "nested"
       },
       {
-        kind: 'data',
-        name: 'canceled',
-        type: 'core::bool',
-      },
-    ],
-  },
-  {
-    kind: 'struct',
-    name: 'event_manager::event_manager::registration::UserAllowed',
-    type: 'event',
-    members: [
-      {
-        kind: 'data',
-        name: 'user',
-        type: 'core::starknet::contract_address::ContractAddress',
+        "name": "Defend",
+        "type": "meshik::game::game::Defend",
+        "kind": "nested"
       },
       {
-        kind: 'data',
-        name: 'allowed',
-        type: 'core::bool',
-      },
-    ],
-  },
-  {
-    kind: 'enum',
-    name: 'event_manager::event_manager::registration::Event',
-    type: 'event',
-    variants: [
-      {
-        kind: 'nested',
-        name: 'UserRegistration',
-        type: 'event_manager::event_manager::registration::UserRegistration',
+        "name": "Finalize",
+        "type": "meshik::game::game::Finalize",
+        "kind": "nested"
       },
       {
-        kind: 'nested',
-        name: 'EventChanged',
-        type: 'event_manager::event_manager::registration::EventChanged',
-      },
-      {
-        kind: 'nested',
-        name: 'EventCancellation',
-        type: 'event_manager::event_manager::registration::EventCancellation',
-      },
-      {
-        kind: 'nested',
-        name: 'UserAllowed',
-        type: 'event_manager::event_manager::registration::UserAllowed',
-      },
-    ],
-  },
+        "name": "Win",
+        "type": "meshik::game::game::Win",
+        "kind": "nested"
+      }
+    ]
+  }
 ] as const satisfies Abi;

@@ -3,4 +3,5 @@ node_modules
 .env.development
 .env.production
 packages/contracts/event_manager/target/
+packages/contracts/meshik/target/
 .spr.yml
