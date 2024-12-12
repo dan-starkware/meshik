@@ -23,6 +23,7 @@ struct PlayerState {
     cards: Array<Card>,
     arena: Array<usize>,
     hand_size: usize,
+    life: usize,
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -136,7 +137,8 @@ mod game {
     #[constructor]
     fn constructor(
         ref self: ContractState,
-        other: ContractAddress,
+        player1: ContractAddress,
+        player2: ContractAddress,
         life: usize,
         initial_cards: usize,
         seed_commit: felt252,
@@ -145,8 +147,8 @@ mod game {
         assert!(initial_cards <= deck.len());
         self.card_count.write(deck.len());
         self.initial_cards.write(initial_cards);
-        self.player1.id.write(starknet::get_caller_address());
-        self.player2.id.write(other);
+        self.player1.id.write(player1);
+        self.player2.id.write(player2);
         self.player1.life.write(life);
         self.player2.life.write(life);
         self.player1.seed_commit.write(seed_commit);
@@ -434,7 +436,10 @@ mod game {
             };
 
             let player1 = PlayerState {
-                cards, arena, hand_size: card_count - self.player1.discarded.read() - arena_length,
+                cards,
+                arena,
+                hand_size: card_count - self.player1.discarded.read() - arena_length,
+                life: self.player1.life.read(),
             };
 
             let mut cards = array![];
@@ -447,7 +452,10 @@ mod game {
                 arena.append(self.player2.arena.values.read(i));
             };
             let player2 = PlayerState {
-                cards, arena, hand_size: card_count - self.player2.discarded.read() - arena_length,
+                cards,
+                arena,
+                hand_size: card_count - self.player2.discarded.read() - arena_length,
+                life: self.player2.life.read(),
             };
             FullState { player1, player2 }
         }
