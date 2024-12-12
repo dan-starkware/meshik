@@ -9,6 +9,20 @@ trait IGame<T> {
     fn win(ref self: T, seed: felt252);
 
     fn validate_and_get_order(self: @T, seed: felt252, actor: usize) -> Array<usize>;
+    fn full_state(self: @T) -> FullState;
+}
+
+#[derive(Drop, Serde)]
+struct FullState {
+    player1: PlayerState,
+    player2: PlayerState,
+}
+
+#[derive(Drop, Serde)]
+struct PlayerState {
+    cards: Array<Card>,
+    arena: Array<usize>,
+    hand_size: usize,
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -32,7 +46,7 @@ mod game {
     use core::num::traits::SaturatingSub;
     use core::dict::{Felt252DictEntryTrait, Felt252Dict};
 
-    use super::{Card, IGame};
+    use super::{Card, IGame, FullState, PlayerState};
 
     #[starknet::storage_node]
     struct ShortUsizeVec {
@@ -48,6 +62,7 @@ mod game {
         arena: ShortUsizeVec,
         seed_commit: felt252,
         deck_pulled_cards: usize,
+        discarded: usize,
         card_to_order: Map<usize, usize>,
         order_to_card: Map<usize, usize>,
         seeds: Vec<felt252>,
@@ -213,10 +228,15 @@ mod game {
             assert!(cost <= resources);
             self.remaining_resources.write(resources - cost);
             let mut attack_length = 0;
+            let mut used_attackers: Felt252Dict<bool> = Default::default();
             for card_in_arena in attack_cards {
                 assert!(*card_in_arena < arena_size);
                 self.attack.values.write(attack_length, *card_in_arena);
                 attack_length += 1;
+
+                let (e, is_used) = used_attackers.entry((*card_in_arena).into());
+                assert!(!is_used, "Attacker used twice");
+                used_attackers = e.finalize(true);
             };
             self.attack.length.write(attack_length);
             let mut new_arena_size = arena_size;
@@ -249,6 +269,7 @@ mod game {
             let mut damage: usize = 0;
             let mut dead_attackers: Felt252Dict<bool> = Default::default();
             let mut dead_defenders: Felt252Dict<bool> = Default::default();
+            let mut used_defenders: Felt252Dict<bool> = Default::default();
             for i in 0..defenders.len() {
                 let specific_defenders = *defenders[i];
                 let attacker_in_arena = self.attack.values.read(i);
@@ -261,6 +282,9 @@ mod game {
                 let mut attacker_attack = specific_attacker.attack.read();
                 let mut attacker_defense = specific_attacker.defense.read();
                 for defender_in_arena in specific_defenders {
+                    let (e, is_used) = used_defenders.entry((*defender_in_arena).into());
+                    assert!(!is_used, "Defender used twice");
+                    used_defenders = e.finalize(true);
                     let defender_in_deck = defender.arena.values.read(*defender_in_arena);
                     let specific_defender = defender.deck.entry(defender_in_deck);
                     let defender_attack = specific_defender.attack.read();
@@ -395,6 +419,37 @@ mod game {
                 }
             };
             order
+        }
+
+        fn full_state(self: @ContractState) -> FullState {
+            let card_count = self.card_count.read();
+            let mut cards = array![];
+            for i in 0..card_count {
+                cards.append(self.player1.deck.entry(i).read());
+            };
+            let arena_length = self.player1.arena.length.read();
+            let mut arena = array![];
+            for i in 0..arena_length {
+                arena.append(self.player1.arena.values.read(i));
+            };
+
+            let player1 = PlayerState {
+                cards, arena, hand_size: card_count - self.player1.discarded.read() - arena_length,
+            };
+
+            let mut cards = array![];
+            for i in 0..card_count {
+                cards.append(self.player2.deck.entry(i).read());
+            };
+            let arena_length = self.player2.arena.length.read();
+            let mut arena = array![];
+            for i in 0..arena_length {
+                arena.append(self.player2.arena.values.read(i));
+            };
+            let player2 = PlayerState {
+                cards, arena, hand_size: card_count - self.player2.discarded.read() - arena_length,
+            };
+            FullState { player1, player2 }
         }
     }
 
