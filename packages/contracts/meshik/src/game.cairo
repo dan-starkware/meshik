@@ -16,6 +16,9 @@ trait IGame<T> {
 struct FullState {
     player1: PlayerState,
     player2: PlayerState,
+    next_actor: usize,
+    turn_state: TurnState,
+    attackers: Array<usize>,
 }
 
 #[derive(Drop, Serde)]
@@ -24,6 +27,17 @@ struct PlayerState {
     arena: Array<usize>,
     hand_size: usize,
     life: usize,
+}
+
+
+#[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
+enum TurnState {
+    #[default]
+    Setup,
+    AwaitDeployAndAttack,
+    AwaitDefend,
+    AwaitFinalize,
+    Done,
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -47,7 +61,7 @@ mod game {
     use core::num::traits::SaturatingSub;
     use core::dict::{Felt252DictEntryTrait, Felt252Dict};
 
-    use super::{Card, IGame, FullState, PlayerState};
+    use super::{Card, IGame, FullState, PlayerState, TurnState};
 
     #[starknet::storage_node]
     struct ShortUsizeVec {
@@ -67,16 +81,6 @@ mod game {
         card_to_order: Map<usize, usize>,
         order_to_card: Map<usize, usize>,
         seeds: Vec<felt252>,
-    }
-
-    #[derive(Copy, Drop, PartialEq, Serde, starknet::Store)]
-    enum TurnState {
-        #[default]
-        Setup,
-        AwaitDeployAndAttack,
-        AwaitDefend,
-        AwaitFinalize,
-        Done,
     }
 
     #[storage]
@@ -457,7 +461,17 @@ mod game {
                 hand_size: card_count - self.player2.discarded.read() - arena_length,
                 life: self.player2.life.read(),
             };
-            FullState { player1, player2 }
+            let mut attackers = array![];
+            let turn_state = self.turn_state.read();
+            if turn_state == TurnState::AwaitDefend {
+                let attackers_length = self.attack.length.read();
+                for i in 0..attackers_length {
+                    attackers.append(self.attack.values.read(i));
+                }
+            }
+            FullState {
+                player1, player2, next_actor: self.next_actor.read(), turn_state, attackers,
+            }
         }
     }
 
