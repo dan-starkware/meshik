@@ -572,9 +572,13 @@ mod test {
         game.deploy_and_attack([(*order[1], 1)].span(), [].span()).unwrap_syscall();
         game.defend([].span()).unwrap_syscall();
         game.finalize([].span(), 2).unwrap_syscall();
-        let order = game.validate_and_get_order(seed1, 2).unwrap_syscall();
-        game.deploy_and_attack([(*order[1], 1)].span(), [].span()).unwrap_syscall();
+        game.deploy_and_attack([].span(), [].span()).unwrap_syscall();
         game.defend([].span()).unwrap_syscall();
+        game.finalize([].span(), 3).unwrap_syscall();
+        let order = game.validate_and_get_order(seed0, 1).unwrap_syscall();
+        game.deploy_and_attack([(*order[2], 2), (*order[0], 0)].span(), [].span()).unwrap_syscall();
+        game.defend([].span()).unwrap_syscall();
+        game.finalize([].span(), 4).unwrap_syscall();
         println!("{:?}", game.full_state());
     }
 }
