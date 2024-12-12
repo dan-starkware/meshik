@@ -12,7 +12,7 @@ export const CLASS_HASH =
 
 /// The address of the deployed contract.
 export const CONTRACT_ADDRESS =
-  '0x3cab73f4b257509deb3baff7d2196b61e3fda9a5385587f0e7bb30c4a0e16f2';
+  '0x6dac1fbd0898ac54bcc184eba76b7eb496677d1cd91d2b952d9868cf33e6917';
 
 /// Universal deployer contract address
 export const UNIVERSAL_DEPLOYER_CONTRACT_ADDRESS =

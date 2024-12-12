@@ -66,7 +66,7 @@ export function StartScreen({ onGameStart, onGameJoin }: StartScreenProps) {
 
             let calldata: string[] = [];
             // this should be the address of the other player
-            let other_player_address = "0x07C8538127f5917f95b64f6EA6ad73E1A05D1f0d6b693F434368544F3B73a909";
+            let other_player_address = "0x01e21279e2f7Dae50D63b98dCE5E64399d26Fd4b4A8e92BA9aF8183C0cb09A56";
             calldata.push(other_player_address);
             calldata.push(initialLife.toString());
             calldata.push(initialHandSize.toString());
