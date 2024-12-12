@@ -6,95 +6,117 @@ import { PlayerStats } from '../PlayerStats/PlayerStats';
 import { AttackPhase } from '../AttackPhase/AttackPhase';
 import { DefensePhase } from '../DefensePhase/DefensePhase';
 import { StartScreen } from '../StartScreen/StartScreen';
-import { GameState, } from '../../types/game_state';
-import { Player } from '../../types/player';
 import { generateInitialDeck, generateId } from '../../lib/utils';
-import { Card as CardType } from '../../types/card';
+import { GameState } from '../../types/game_state';
+import { Player } from '../../types/player';
+import { Card as CardType} from '../../types/card';
 import { CardInfo } from '../../types/card_info';
+import { GameConfig } from '../../types/game_config';
 import { Button } from "@/components/ui/button"
 
 export function Game() {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [players, setPlayers] = useState<[Player | null, Player | null]>([null, null]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleGameStart = (playerIndex: number, address: string, cardLibrary: Record<string, CardInfo>) => {
-    const newPlayer: Player = {
-      id: `player_${playerIndex + 1}`,
-      name: `Player ${playerIndex + 1}`,
-      address,
-      life: 20,
+  const generateGameAddress = () => {
+    return `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+  };
+
+  const handleGameStart = async (gameConfig: GameConfig) => {
+    const { cardLibrary, initialLife, initialHandSize } = gameConfig;
+    const gameAddress = generateGameAddress();
+
+    const player1: Player = {
+      id: 'player1',
+      name: 'Player 1',
+      life: initialLife,
       hand: [],
       battlefield: [],
-      deck: [], // Changed from library to deck
+      deck: [],
       mana: 0,
       activeMana: 0,
       playedManaThisTurn: false,
     };
 
-    setPlayers(prevPlayers => {
-      const newPlayers = [...prevPlayers] as [Player | null, Player | null];
-      newPlayers[playerIndex] = newPlayer;
-      return newPlayers;
-    });
-
-    if (playerIndex === 1) {
-      initializeGame(players[0]!, newPlayer, cardLibrary);
-    }
-  };
-
-  const initializeGame = (player1: Player, player2: Player, cardLibrary: Record<string, CardInfo>) => {
-    const player1Deck = generateInitialDeck(cardLibrary);
-    const player2Deck = generateInitialDeck(cardLibrary);
-
-    const drawInitialHand = (deck: CardType[]): [CardType[], CardType[]] => {
-      const hand = deck.slice(0, 7);
-      const remainingDeck = deck.slice(7);
-      return [hand, remainingDeck];
+    const player2: Player = {
+      id: 'player2',
+      name: 'Player 2',
+      life: initialLife,
+      hand: [],
+      battlefield: [],
+      deck: [],
+      mana: 0,
+      activeMana: 0,
+      playedManaThisTurn: false,
     };
 
-    const [player1Hand, player1RemainingDeck] = drawInitialHand(player1Deck);
-    const [player2Hand, player2RemainingDeck] = drawInitialHand(player2Deck);
+    setIsLoading(true);
+
+    initializeGame(player1, player2, cardLibrary, initialHandSize, gameAddress);
+    setIsLoading(false);
+  };
+
+  const handleGameJoin = (address: string, cardLibrary: Record<string, CardInfo>) => {
+    const initialLife = 20; // Default life total
+    const initialHandSize = 7; // Default hand size
+    const player1: Player = {
+      id: 'player1',
+      name: 'Player 1',
+      life: initialLife,
+      hand: [],
+      battlefield: [],
+      deck: [],
+      mana: 0,
+      activeMana: 0,
+      playedManaThisTurn: false,
+    };
+
+    const player2: Player = {
+      id: 'player2',
+      name: 'Player 2',
+      life: initialLife,
+      hand: [],
+      battlefield: [],
+      deck: [],
+      mana: 0,
+      activeMana: 0,
+      playedManaThisTurn: false,
+    };
+
+    initializeGame(player1, player2, cardLibrary, initialHandSize, address);
+  };
+
+  const initializeGame = (humanPlayer: Player, aiPlayer: Player, cardLibrary: Record<string, CardInfo>, initialHandSize: number, gameAddress: string) => {
+    const initializePlayer = (player: Player) => {
+      const deck = generateInitialDeck(cardLibrary);
+      const [hand, remainingDeck] = drawInitialHand(deck, initialHandSize);
+      return {
+        ...player,
+        hand,
+        deck: remainingDeck,
+      };
+    };
+
+    const initializedHumanPlayer = initializePlayer(humanPlayer);
+    const initializedAIPlayer = initializePlayer(aiPlayer);
 
     const initialGameState: GameState = {
-      players: [
-        { ...player1, deck: player1RemainingDeck, hand: player1Hand },
-        { ...player2, deck: player2RemainingDeck, hand: player2Hand },
-      ],
-      activePlayer: 0,
+      players: [initializedHumanPlayer, initializedAIPlayer],
+      activePlayer: 0, // Human player starts
       turn: 1,
       phase: 'main',
       attackingCards: [],
       defendingCards: [],
+      gameAddress,
     };
 
     setGameState(initialGameState);
   };
 
-  if (!gameState) {
-    if (!players[0]) {
-      return <StartScreen onGameStart={(address, cardInfo) => handleGameStart(0, address, cardInfo)} isFirstPlayer={true} />;
-    } else if (!players[1]) {
-      return <StartScreen onGameStart={(address, cardInfo) => handleGameStart(1, address, cardInfo)} isFirstPlayer={false} />;
-    }
-    return <div>Loading...</div>;
-  }
-
-  const drawCard = (playerId: string) => {
-    setGameState(prevState => {
-      if (!prevState) return null;
-      const playerIndex = prevState.players.findIndex(p => p.id === playerId);
-      if (playerIndex === -1 || prevState.players[playerIndex].deck.length === 0) return prevState;
-
-      const newState = { ...prevState };
-      const [drawnCard, ...remainingDeck] = newState.players[playerIndex].deck;
-      if (drawnCard) {
-        newState.players[playerIndex].hand.push(drawnCard);
-        newState.players[playerIndex].deck = remainingDeck;
-      }
-      // call contract with drawnCard
-
-      return newState;
-    });
+  const drawInitialHand = (deck: CardType[], initialHandSize: number): [CardType[], CardType[]] => {
+    const hand = deck.slice(0, initialHandSize);
+    const remainingDeck = deck.slice(initialHandSize);
+    return [hand, remainingDeck];
   };
 
   const playCard = (playerId: string, cardIndex: number) => {
@@ -109,7 +131,7 @@ export function Game() {
 
       if (card.type === 'mana') {
         if (!player.playedManaThisTurn) {
-          player.battlefield.push({ ...card, id: generateId() }); // Create a new object with a new ID
+          player.battlefield.push({...card, id: generateId()});
           player.hand.splice(cardIndex, 1);
           player.mana += 1;
           player.activeMana += 1;
@@ -118,7 +140,7 @@ export function Game() {
           return prevState; // Can't play more than one mana per turn
         }
       } else if (card.type === 'creature' && card.cost && player.activeMana >= card.cost) {
-        player.battlefield.push({ ...card, id: generateId() }); // Create a new object with a new ID
+        player.battlefield.push({...card, id: generateId()});
         player.hand.splice(cardIndex, 1);
         player.activeMana -= card.cost;
       } else {
@@ -136,7 +158,6 @@ export function Game() {
       const creaturesAvailableToAttack = activePlayer.battlefield.some(card => card.type === 'creature' && !card.tapped);
 
       if (!creaturesAvailableToAttack) {
-        // If no creatures are available to attack, skip to end turn
         return {
           ...prevState,
           phase: 'main',
@@ -198,38 +219,30 @@ export function Game() {
       if (!prevState) return null;
       const newState = { ...prevState };
 
-      // Resolve combat
       const attackingPlayer = newState.players[newState.activePlayer];
       const defendingPlayer = newState.players[(newState.activePlayer + 1) % 2];
 
-      // Create a copy of attacking cards to modify during combat
-      const attackingCardsCopy = newState.attackingCards.map(card => ({ ...card, currentPower: card.attack, currentToughness: card.defense }));
+      const attackingCardsCopy = newState.attackingCards.map(card => ({...card, currentPower: card.attack, currentToughness: card.defense}));
 
-      // Process defenders
       newState.defendingCards.forEach(defender => {
         const attacker = attackingCardsCopy.find(card => card.id === defender.defending);
-        if (attacker && attacker.currentPower && attacker.currentPower > 0) {
-          // Combat between attacker and defender
+        if (attacker) {
           if (defender.defense !== undefined && attacker.currentPower !== undefined) {
             defender.defense -= attacker.currentPower;
           }
           if (attacker.currentToughness !== undefined && defender.attack !== undefined) {
             attacker.currentToughness -= defender.attack;
           }
-          // Reduce attacker's power for subsequent combats
-          attacker.currentPower = 0; // Attacker's power is fully used in single combat
         }
       });
 
-      // Deal damage to defending player from unblocked attackers
       const unblockedAttackers = attackingCardsCopy.filter(attacker =>
         !newState.defendingCards.some(defender => defender.defending === attacker.id)
       );
       unblockedAttackers.forEach(attacker => {
-        defendingPlayer.life -= attacker.currentPower || 0;
+        defendingPlayer.life -= attacker.attack || 0;
       });
 
-      // Remove destroyed creatures immediately
       const removeDestroyedCreatures = (battlefield: CardType[]) =>
         battlefield.filter(card =>
           card.type !== 'creature' || (card.defense !== undefined && card.defense > 0)
@@ -238,7 +251,12 @@ export function Game() {
       attackingPlayer.battlefield = removeDestroyedCreatures(attackingPlayer.battlefield);
       defendingPlayer.battlefield = removeDestroyedCreatures(defendingPlayer.battlefield);
 
-      // Reset all creatures, including their stats
+      // Update the attacking cards on the battlefield
+      attackingPlayer.battlefield = attackingPlayer.battlefield.map(card => {
+        const updatedCard = attackingCardsCopy.find(c => c.id === card.id);
+        return updatedCard || card;
+      });
+
       const resetCreatures = (battlefield: CardType[]) =>
         battlefield.map(card => {
           if (card.type === 'creature') {
@@ -247,8 +265,6 @@ export function Game() {
               attacking: false,
               defending: undefined,
               tapped: card.attacking || card.defending ? true : card.tapped,
-              attack: card.attack, // Reset attack to original value
-              defense: card.defense, // Reset defense to original value
             };
           }
           return card;
@@ -273,71 +289,86 @@ export function Game() {
       if (!prevState) return null;
       const newState = { ...prevState };
       newState.activePlayer = (prevState.activePlayer + 1) % 2;
-      newState.turn = prevState.activePlayer === 1 ? prevState.turn + 1 : prevState.turn;
+      newState.turn += 1;
 
       // Reset active mana and playedManaThisTurn for the new active player
-      newState.players[newState.activePlayer].activeMana = newState.players[newState.activePlayer].mana;
-      newState.players[newState.activePlayer].playedManaThisTurn = false;
+      const nextPlayer = newState.players[newState.activePlayer];
+      if (nextPlayer) {
+        nextPlayer.activeMana = nextPlayer.mana;
+        nextPlayer.playedManaThisTurn = false;
 
-      // Untap all cards for the new active player only
-      newState.players[newState.activePlayer].battlefield.forEach(card => card.tapped = false);
+        // Untap all cards for the new active player only
+        nextPlayer.battlefield.forEach(card => card.tapped = false);
 
-      // Draw a card for the new active player
-      const [drawnCard, ...remainingDeck] = newState.players[newState.activePlayer].deck;
-      if (drawnCard) {
-        newState.players[newState.activePlayer].hand.push(drawnCard);
-        newState.players[newState.activePlayer].deck = remainingDeck;
+        // Draw a card for Player 1 at the start of their turn, including the first turn
+        if (newState.activePlayer === 0 && nextPlayer.deck.length > 0) {
+          const [drawnCard, ...remainingDeck] = nextPlayer.deck;
+          nextPlayer.hand.push(drawnCard);
+          nextPlayer.deck = remainingDeck;
+        }
       }
 
       return newState;
     });
   };
 
-  const activePlayer = gameState.players[gameState.activePlayer];
+  if (!gameState) {
+    return <StartScreen onGameStart={handleGameStart} onGameJoin={handleGameJoin} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-green-900 text-white flex items-center justify-center">
+        <p className="text-2xl">Initializing game...</p>
+      </div>
+    );
+  }
+
+  const currentPlayer = gameState.players[gameState.activePlayer];
+  const opponentPlayer = gameState.players[(gameState.activePlayer + 1) % 2];
 
   return (
     <div className="min-h-screen bg-green-900 text-white flex flex-col">
       <div className="p-4 bg-gray-800">
         <h1 className="text-3xl font-bold mb-2">Magic: The Gathering Arena Clone</h1>
-        <p className="text-xl">Turn: {gameState.turn} | Active Player: {activePlayer.name} | Phase: {gameState.phase}</p>
+        <p className="text-xl">Turn: {gameState.turn} | Active Player: {currentPlayer.name} | Phase: {gameState.phase}</p>
+        <p className="text-sm">Game Address: {gameState.gameAddress}</p>
       </div>
-      <div className="flex-grow flex">
-        <div className="w-1/5 bg-gray-700 p-4">
-          <PlayerStats player={gameState.players[0]} />
+      <div className="flex-grow flex flex-col">
+        <div className="bg-gray-700 p-4">
+          <PlayerStats player={opponentPlayer} />
         </div>
-        <div className="w-3/5 flex-grow">
-          {gameState.phase === 'main' && (
-            <GameBoard
-              players={gameState.players}
-              onPlayCard={playCard}
-              activePlayer={gameState.activePlayer}
-            />
-          )}
-          {gameState.phase === 'attack' && (
+        <div className="flex-grow">
+          <GameBoard
+            players={gameState.players}
+            onPlayCard={playCard}
+            activePlayer={gameState.activePlayer}
+          />
+          {gameState.activePlayer === 0 && gameState.phase === 'attack' && (
             <AttackPhase
-              cards={activePlayer.battlefield.filter(card => card.type === 'creature' && !card.tapped)}
+              cards={currentPlayer.battlefield.filter(card => card.type === 'creature' && !card.tapped)}
               onAttack={handleAttack}
               onEndAttack={endAttackPhase}
             />
           )}
-          {gameState.phase === 'defense' && (
+          {gameState.activePlayer === 1 && gameState.phase === 'defense' && (
             <DefensePhase
               attackingCards={gameState.attackingCards}
-              defendingCards={gameState.players[(gameState.activePlayer + 1) % 2].battlefield.filter(card => card.type === 'creature')}
+              defendingCards={currentPlayer.battlefield.filter(card => card.type === 'creature')}
               onDefend={handleDefend}
               onEndDefense={endDefensePhase}
             />
           )}
         </div>
-        <div className="w-1/5 bg-gray-700 p-4">
-          <PlayerStats player={gameState.players[1]} />
+        <div className="bg-gray-700 p-4">
+          <PlayerStats player={currentPlayer} />
           <div className="mt-4">
-            {gameState.phase === 'main' && (
+            {gameState.activePlayer === 0 && gameState.phase === 'main' && (
               <>
                 <Button
                   onClick={startAttackPhase}
                   className="w-full mb-2"
-                  disabled={!activePlayer.battlefield.some(card => card.type === 'creature' && !card.tapped)}
+                  disabled={!currentPlayer.battlefield.some(card => card.type === 'creature' && !card.tapped)}
                 >
                   Start Attack Phase
                 </Button>
@@ -349,10 +380,17 @@ export function Game() {
                 </Button>
               </>
             )}
+            {gameState.activePlayer === 1 && gameState.phase === 'main' && (
+              <Button
+                onClick={endTurn}
+                className="w-full"
+              >
+                End Opponent's Turn
+              </Button>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

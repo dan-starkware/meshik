@@ -35,4 +35,3 @@ export function generateInitialDeck(cardLibrary: Record<string, CardInfo>): Card
 
   return deck;
 }
-

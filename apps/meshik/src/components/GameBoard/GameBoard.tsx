@@ -1,5 +1,5 @@
-import { Card } from "../Card/Card";
-import { Player as PlayerType } from '../../types/player'
+import { Card } from '../Card/Card';
+import { Player as PlayerType } from '../../types/player';
 
 interface GameBoardProps {
   players: [PlayerType, PlayerType];
@@ -16,17 +16,28 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
         {isActivePlayer ? "Your Hand" : "Opponent's Hand"}
       </h3>
       <div className="flex flex-wrap gap-2 justify-start">
-        {player.hand.map((card, cardIndex) => (
-          <div key={card.id} className="w-36 h-48"> {/* Updated size */}
-            <Card
-              card={isActivePlayer ? card : { ...card, name: 'Hidden' }}
-              onClick={() => isActivePlayer && onPlayCard(player.id, cardIndex)}
-              interactive={isActivePlayer}
-              faceDown={!isActivePlayer}
-              isOnBattlefield={false}
-            />
-          </div>
-        ))}
+        {isActivePlayer ? (
+          player.hand.map((card, cardIndex) => (
+            <div key={card.id} className="w-36 h-48">
+              <Card
+                card={card}
+                onClick={() => onPlayCard(player.id, cardIndex)}
+                interactive={true}
+                isOnBattlefield={false}
+              />
+            </div>
+          ))
+        ) : (
+          Array(player.hand.length).fill(null).map((_, index) => (
+            <div key={index} className="w-36 h-48">
+              <Card
+                card={{ id: `opponent-card-${index}`, type: 'unknown' } as any}
+                faceDown={true}
+                isOnBattlefield={false}
+              />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -82,15 +93,27 @@ export function GameBoard({ players, onPlayCard, activePlayer }: GameBoardProps)
     );
   };
 
+  const renderDeck = (player: PlayerType, isActivePlayer: boolean) => (
+    <div className="p-4 bg-gray-800 bg-opacity-50">
+      <h3 className="text-lg font-semibold mb-2 text-white">
+        {isActivePlayer ? "Your Deck" : "Opponent's Deck"}
+      </h3>
+      <div className="flex items-center justify-center h-48 w-36 bg-gray-700 rounded-lg">
+        <span className="text-2xl font-bold">{player.deck.length}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full">
-      {renderHand(player1, activePlayer === 0)}
+      {renderHand(player2, false)}
+      {renderDeck(player2, false)}
       <div className="flex-grow flex flex-col">
-        {renderBattlefield(player1, activePlayer === 0)}
-        {renderBattlefield(player2, activePlayer === 1)}
+        {renderBattlefield(player2, false)}
+        {renderBattlefield(player1, true)}
       </div>
-      {renderHand(player2, activePlayer === 1)}
+      {renderHand(player1, true)}
+      {renderDeck(player1, true)}
     </div>
   );
 }
-

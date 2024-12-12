@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { CardInfo } from '../../types/card_info';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { StartScreenProps } from '../../types/start_screen_props'
+// import { StartScreenProps } from '../../types/start_screen_props'
 import { GameConfig } from '../../types/game_config';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -260,4 +260,3 @@ export function StartScreen({ onGameStart, onGameJoin }: StartScreenProps) {
         </div>
     );
 }
-

@@ -8,5 +8,5 @@ export interface GameState {
     phase: 'main' | 'attack' | 'defense' | 'resolution';
     attackingCards: Card[];
     defendingCards: Card[];
-}
-
+    gameAddress: string;
+  }

@@ -6,4 +6,4 @@ export interface Card extends CardInfo {
     attacking?: boolean;
     defending?: string;
     type: 'mana' | 'creature';
-}
+  }

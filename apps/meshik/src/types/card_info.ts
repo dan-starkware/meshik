@@ -4,4 +4,4 @@ export interface CardInfo {
     attack: number;
     defense: number;
     img_url: string;
-}
+  }

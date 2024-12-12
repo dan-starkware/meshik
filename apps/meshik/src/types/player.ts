@@ -2,7 +2,6 @@ import { Card } from "./card";
 export interface Player {
     id: string;
     name: string;
-    address: string;
     life: number;
     hand: Card[];
     battlefield: Card[];
